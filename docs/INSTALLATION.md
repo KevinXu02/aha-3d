@@ -22,7 +22,8 @@ conflicts with Kimodo's shared core.
 ## Install the selected level
 
 All components install on one Linux workstation (Ubuntu or WSL2) with one NVIDIA
-GPU; see the [runtime policy](../MACHINE.md). Run the supported installer from
+GPU; see the [runtime policy](../MACHINE.md). On AMD GPUs, install the Static
+level with the [ROCm guide](install/rocm.md) instead. Run the supported installer from
 the checkout root:
 
 ```bash
