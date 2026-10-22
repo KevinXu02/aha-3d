@@ -12,7 +12,8 @@ The Human level's runtimes (SAM3 tracking, GVHMR, PMPose) install in the same
 image and their GPU kernels match CPU results; a full source-person
 reconstruction has not been run on ROCm yet. The Robotics level's Kimodo
 generates native G1 motion on the GPU, matching a CPU run started from the same
-noise. Blender was not tested at any level.
+noise, and the G1 interaction batch runs in a room exported by headless Blender.
+Blender rendering was not tested at any level.
 
 ## Validated configuration
 
@@ -211,6 +212,27 @@ as in the [Kimodo guide](kimodo.md#authorized-g1-and-text-weights), passing the
 Hugging Face token from the host (`docker exec -e HF_TOKEN ...`). Use this
 `KIMODO_ENV` in every shell and in the runtime profile.
 
+### Room export and G1 interaction
+
+Blender exports RoomKit rooms on the CPU, so the official Linux binary from the
+[Blender guide](blender.md) works unchanged; the image needs its X11/OpenGL
+libraries. The G1 interaction batch then runs in the Kimodo venv, and the review
+page needs Node.
+
+```bash
+apt-get update && apt-get install -y --no-install-recommends curl xz-utils \
+  libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libsm6 libgl1 \
+  libegl1 libx11-6 libxkbcommon-x11-0 nodejs npm
+curl -fsSL https://download.blender.org/release/Blender5.2/blender-5.2.1-linux-x64.tar.xz | tar xJ -C /opt
+/opt/blender-5.2.1-linux-x64/blender -b --factory-startup \
+  --python tools/roomkit_browser/export_scene.py -- \
+  --source examples/office48/whitebox.blend --out /tmp/office48/scene.json --auto --no-sha
+PYTHONPATH="$PWD/src" python tools/kimodo/g1_interaction.py --batch /path/to/batch.json
+(cd tools/roomkit_browser && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci)
+python tools/roomkit_browser/motion_review.py --manifest /path/to/review.json \
+  --out /tmp/office48_view --node "$(command -v node)"
+```
+
 ## Checks run
 
 Input: the 237-frame `example/loop` office walk-through from
@@ -249,8 +271,12 @@ Robotics-level runtime, on the same machine and image:
 | G1 generation with the pipeline's motion command ("A robot walks forward and waves with the right hand.", 5 s, seed 42, 100 diffusion steps) | 150 frames × 34 joints, all finite, and a 150-row MuJoCo qpos CSV; 46 s including model loading, 15.3 GiB peak GPU memory |
 | Same generation on GPU and CPU from the same noise | joint positions differ by 0.51 cm on average and 1.08 cm at most |
 | Kimodo-related unit tests (`test_kimodo_frame`, `test_g1_interaction`, `test_interaction_sequence`, `test_reference_motion`, `test_metric_legs`) | 56 run, OK |
+| Blender 5.2.1 export of `examples/office48/whitebox.blend` (`export_scene.py --auto`) | 411 meshes, 97 objects, orbit and plan views; 95 s on the CPU |
+| G1 interaction batch in that room (walk to the desk, then push a bottle 11 cm with the right hand; 6 s, seed 42, 100 diffusion steps) | 5 motion variants, 180 frames; right-hand contact proxy 0.04 cm mean and 1.15 cm max after refinement; foot penetration at most 2.4 cm; 127 s including model loading |
+| `motion_review.py` with Ubuntu's Node 18.19.1 | review page builds and plays back in a browser |
 
 Kimodo draws its diffusion noise on the device, so for the GPU/CPU comparison a
 small wrapper drew it on the CPU for both runs; the timing is from that wrapped
-GPU run. The G1 interaction batch (it needs RoomKit scenes), SMPL-X generation
-and Blender rendering and skinning were not run.
+GPU run. The interaction run's object track is prescribed by its plan, and the
+tool checks hand contact and foot penetration but not body–furniture collision.
+SMPL-X generation and Blender rendering and skinning were not run.
