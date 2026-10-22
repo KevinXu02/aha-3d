@@ -15,8 +15,8 @@ inference, SAM3 tracking, Kimodo with its Llama text encoder, Cycles renders)
 may need the 32-frame tier, lower resolution or pixel limits, shorter clips or
 smaller batches. Record any such reduction with the result.
 
-The Static level also runs on AMD Instinct GPUs with ROCm; see
-[docs/install/rocm.md](docs/install/rocm.md).
+The Static level also runs on AMD Instinct GPUs with ROCm, and the Human-level
+runtimes install there; see [docs/install/rocm.md](docs/install/rocm.md).
 
 ## Environment
 

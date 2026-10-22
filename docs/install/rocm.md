@@ -1,4 +1,4 @@
-# Static level on AMD GPUs (ROCm)
+# Static and Human levels on AMD GPUs (ROCm)
 
 The Static level (Pi3X, SAM3 and Open3D) runs on AMD Instinct GPUs with the
 PyTorch build that ships in the official
@@ -8,8 +8,10 @@ Python, Open3D gets its own Python 3.11 environment, and `build_reference`
 selects both through its existing runtime flags. ROCm PyTorch exposes the GPU
 through the `torch.cuda` API, so no source changes are needed.
 
-Human and Robotics levels (PMPose/MMCV, GVHMR/PyTorch3D, Kimodo) and Blender
-were not tested on ROCm.
+The Human level's runtimes (SAM3 tracking, GVHMR, PMPose) install in the same
+image and their GPU kernels match CPU results; a full source-person
+reconstruction has not been run on ROCm yet. The Robotics level (Kimodo) and
+Blender were not tested.
 
 ## Validated configuration
 
@@ -102,6 +104,77 @@ python -m tools.layout_inspection.build_reference --video /absolute/video.mp4 \
 The [geometry guide](../PI3X_GEOMETRY_REFERENCE.md) describes the outputs and
 review.
 
+## Human-level runtimes
+
+These steps replace the CUDA-specific parts of the
+[Human installation](human-motion.md) and [GVHMR installation](gvhmr.md); body
+models, weights and the pipeline commands are as described there. Each runtime
+reuses the image's PyTorch through the constraints file from the Static install.
+
+Add PyAV to the SAM3 runtime for video tracking:
+
+```bash
+python -m pip install -c /tmp/rocm-torch.txt av==12.3.0
+python -c 'import av; from sam3.model_builder import build_sam3_video_model; print("SAM3_TRACKING_IMPORT_OK")'
+```
+
+GVHMR and PMPose get their own venvs created from the image Python with
+`--system-site-packages`, so they see the image's PyTorch. Check that before
+installing anything; otherwise pip would pull a CUDA build from PyPI.
+
+GVHMR uses the prebuilt
+[PyTorch3D ROCm wheel](https://github.com/ZJLi2013/pytorch3d/releases/tag/rocm6.4-py3.12);
+a source build of PyTorch3D compiles but has no GPU kernels. DPVO and
+torch-scatter are not installed, so select Pi3X camera poses with
+`--camera-estimator pi3x --pi3x-bundle` (see [GVHMR](gvhmr.md#dpvo-versus-pi3x-camera-input));
+that route does not import DPVO.
+
+```bash
+export GVHMR_ROOT="$PWD/.runtime/gvhmr-bedlam2"
+export GVHMR_PYTHON="$GVHMR_ROOT/venv/bin/python"
+git clone --recursive https://github.com/mkocabas/GVHMR_BEDLAM2.git "$GVHMR_ROOT"
+git -C "$GVHMR_ROOT" checkout cac2d9dacc6b4b6f145ca02c2e6e616719fff916
+git -C "$GVHMR_ROOT" submodule update --init --recursive
+python -m venv --system-site-packages "$GVHMR_ROOT/venv"
+"$GVHMR_PYTHON" -c 'import torch; print(torch.__file__)'   # must be the image's torch
+"$GVHMR_PYTHON" -m pip install -c /tmp/rocm-torch.txt numpy==1.26.4 av==12.3.0 imageio==2.37.2 \
+  imageio-ffmpeg timm==1.0.20 pytorch-lightning==2.5.5 smplx==0.1.28 \
+  hydra-core hydra-zen hydra-colorlog omegaconf rich yacs einops \
+  opencv-python==4.10.0.84 scipy pillow matplotlib ffmpeg-python scikit-image \
+  termcolor joblib trimesh wis3d tensorboardX ipdb \
+  ultralytics==8.2.42 cython_bbox lapx fvcore iopath numba pypose \
+  portalocker loguru safetensors
+"$GVHMR_PYTHON" -m pip install -c /tmp/rocm-torch.txt --no-build-isolation chumpy==0.70
+"$GVHMR_PYTHON" -m pip install --no-deps -e "$GVHMR_ROOT"
+"$GVHMR_PYTHON" -m pip install --no-deps \
+  https://github.com/ZJLi2013/pytorch3d/releases/download/rocm6.4-py3.12/pytorch3d-0.7.9-cp312-cp312-linux_x86_64.whl
+```
+
+MMCV 2.2.0 builds its ops for ROCm from source when it detects a HIP PyTorch:
+
+```bash
+export BMP_ROOT="$PWD/.runtime/bmp/src"
+export PMPOSE_PYTHON="$PWD/.runtime/bmp/venv/bin/python"
+git clone https://github.com/MiraPurkrabek/BBoxMaskPose "$BMP_ROOT"
+git -C "$BMP_ROOT" checkout --detach 49a070a6f8396147323b1c4959474077dbe2ce8e
+python -m venv --system-site-packages "$PWD/.runtime/bmp/venv"
+export PATH="$PWD/.runtime/bmp/venv/bin:$PATH"
+"$PMPOSE_PYTHON" -m pip install -c /tmp/rocm-torch.txt setuptools wheel ninja \
+  mmengine==0.10.7 numpy==1.26.4 opencv-python==4.10.0.84
+MAX_JOBS=32 FORCE_CUDA=1 MMCV_WITH_OPS=1 PYTORCH_ROCM_ARCH=gfx942 \
+  "$PMPOSE_PYTHON" -m pip install -c /tmp/rocm-torch.txt --no-build-isolation --no-binary=mmcv mmcv==2.2.0
+"$PMPOSE_PYTHON" -m pip install -c /tmp/rocm-torch.txt mmdet==3.3.0 mmpretrain==1.2.0 \
+  xtcocotools pycocotools hydra-core einops mat4py importlib_metadata \
+  json_tricks munkres sparsemax==0.1.9 transformers==4.35.2 tokenizers==0.15.2
+"$PMPOSE_PYTHON" -m pip install --no-deps -e "$BMP_ROOT"
+```
+
+Then apply the guarded `mmcv_maximum_version` edit from the
+[Human installation](human-motion.md#separate-pmpose-environment) and run its
+[verification block](human-motion.md#verify-before-a-new-run).
+`PYTORCH_ROCM_ARCH=gfx942` targets MI300-series GPUs; set your GPU's
+architecture. MMCV compiled in a few minutes with 32 jobs.
+
 ## Checks run
 
 Input: the 237-frame `example/loop` office walk-through from
@@ -116,3 +189,17 @@ Input: the 237-frame `example/loop` office walk-through from
 
 Pi3X prints `cannot find cuda-compiled version of RoPE2D, using a slow pytorch
 version instead`; the PyTorch fallback was used for the timings above.
+
+Human-level runtimes, on the same machine and image:
+
+| Check | Result |
+| --- | --- |
+| PyTorch in the SAM3, GVHMR and PMPose runtimes | the image's build and path in all three, GPU visible |
+| `pip check` | clean for SAM3 and GVHMR; PMPose reports `bbox-mask-pose` requires `chumpy`, which the Human guide's PMPose recipe does not install either |
+| [Human verification block](human-motion.md#verify-before-a-new-run) | all imports and `world_pipeline.py prepare --help` pass |
+| PyTorch3D on GPU vs CPU | `MeshRasterizer` (naive and binned) and `knn_points` give identical results |
+| MMCV ops on GPU vs CPU | `nms` keeps the same 354 boxes; `roi_align` max difference 1.2e-7 |
+| PyAV | decodes all 237 frames of the input video |
+
+These checks do not load model weights or body models and do not establish
+reconstruction quality.
