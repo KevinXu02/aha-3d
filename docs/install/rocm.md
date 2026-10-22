@@ -1,4 +1,4 @@
-# Static and Human levels on AMD GPUs (ROCm)
+# Static, Human and Robotics levels on AMD GPUs (ROCm)
 
 The Static level (Pi3X, SAM3 and Open3D) runs on AMD Instinct GPUs with the
 PyTorch build that ships in the official
@@ -10,8 +10,9 @@ through the `torch.cuda` API, so no source changes are needed.
 
 The Human level's runtimes (SAM3 tracking, GVHMR, PMPose) install in the same
 image and their GPU kernels match CPU results; a full source-person
-reconstruction has not been run on ROCm yet. The Robotics level (Kimodo) and
-Blender were not tested.
+reconstruction has not been run on ROCm yet. The Robotics level's Kimodo
+generates native G1 motion on the GPU, matching a CPU run started from the same
+noise. Blender was not tested at any level.
 
 ## Validated configuration
 
@@ -21,10 +22,11 @@ Blender were not tested.
 | Image | `rocm/pytorch:rocm6.4.4_ubuntu24.04_py3.12_pytorch_release_2.7.1` (about 70 GB) |
 | Pi3X / SAM3 Python | image Python 3.12, `torch 2.7.1+git99ccf24`, `torchvision 0.22.1+59a3e1f`, `triton 3.3.1`, HIP 6.4 |
 | Mesh Python | Python 3.11 venv, `open3d 0.18.0` from the `reference` extra |
-| Source pins | Pi3 `9fa3ddb3f8d53041f8b2738df404f62223bbaa7b`, SAM3 `660a5e9e1b8b4c02c0ad97229b88a09a6e4ff5b7` |
+| Kimodo Python | venv over the image Python 3.12 (`--system-site-packages`), `transformers 5.1.0` |
+| Source pins | Pi3 `9fa3ddb3f8d53041f8b2738df404f62223bbaa7b`, SAM3 `660a5e9e1b8b4c02c0ad97229b88a09a6e4ff5b7`, Kimodo `1aece8c124d73d255ceff5086d983b844c9f4e94` |
 
-Python 3.12 is a deviation from the documented 3.11 Pi3X/SAM3 baseline; the
-checks below ran on it. The mesh environment stays on 3.11 because the pinned
+Python 3.12 is a deviation from the documented 3.11 Pi3X/SAM3/Kimodo baseline;
+the checks below ran on it. The mesh environment stays on 3.11 because the pinned
 Open3D 0.18.0 has no Python 3.12 wheels.
 
 ## Start the container
@@ -175,6 +177,40 @@ Then apply the guarded `mmcv_maximum_version` edit from the
 `PYTORCH_ROCM_ARCH=gfx942` targets MI300-series GPUs; set your GPU's
 architecture. MMCV compiled in a few minutes with 32 jobs.
 
+## Robotics-level runtime
+
+These steps replace `tools/setup_core.sh`, which requires Python 3.11 and
+installs CUDA wheels; weights, the runtime check and the pipeline are as in the
+[Kimodo guide](kimodo.md). Kimodo is PyTorch plus a CPU-only C++ extension
+(`motion_correction`), so nothing GPU-specific is compiled.
+
+Kimodo gets a `--system-site-packages` venv instead of sharing the image Python
+with Pi3X: it requires `av>=16.1.0`, while the SAM3 runtime there pins
+`av==12.3.0`. The venv still sees the image's PyTorch and the Pi3X
+dependencies. The `torch==2.7.1` pin in `constraints-core.txt` accepts the
+image's `2.7.1+git99ccf24`.
+
+```bash
+git clone https://github.com/nv-tlabs/kimodo.git kimodo_blender/upstream
+git -C kimodo_blender/upstream checkout --detach 1aece8c124d73d255ceff5086d983b844c9f4e94
+python -m venv --system-site-packages .runtime/kimodo/venv
+export KIMODO_ENV="$PWD/.runtime/kimodo/venv"
+"$KIMODO_ENV/bin/python" -c 'import torch; print(torch.__file__)'   # must be the image's torch
+source kimodo_blender/env.sh   # puts $KIMODO_ENV/bin first on PATH
+python -m pip install -c /tmp/rocm-torch.txt -r requirements-core.txt
+export PATH="$(python -c 'import cmake; print(cmake.CMAKE_BIN_DIR)'):$PATH" CMAKE_GENERATOR=Ninja
+python -m pip install -c /tmp/rocm-torch.txt -c constraints-core.txt \
+  -e kimodo_blender/upstream -e ".[test]"
+python -m pip check
+MOMENTUM_ENABLED=0 XFORMERS_DISABLED=1 PYTHONPATH="$PWD/external/Pi3:$PWD/src" \
+  python -c 'import kimodo, motion_correction; from pi3.models.pi3x import Pi3X; print("SHARED_CORE_IMPORT_OK")'
+```
+
+Then download the G1 and text weights and run `check_runtime.py --model g1`
+as in the [Kimodo guide](kimodo.md#authorized-g1-and-text-weights), passing the
+Hugging Face token from the host (`docker exec -e HF_TOKEN ...`). Use this
+`KIMODO_ENV` in every shell and in the runtime profile.
+
 ## Checks run
 
 Input: the 237-frame `example/loop` office walk-through from
@@ -203,3 +239,18 @@ Human-level runtimes, on the same machine and image:
 
 These checks do not load model weights or body models and do not establish
 reconstruction quality.
+
+Robotics-level runtime, on the same machine and image:
+
+| Check | Result |
+| --- | --- |
+| PyTorch in the Kimodo venv | the image's build and path, GPU visible; `pip check` clean |
+| `check_runtime.py --model g1` | GPU matmul finite; G1 and Llama 3 access pass; Llama 3 and both LLM2Vec snapshots at the revisions listed in the Kimodo guide, G1 at `3020ad8` |
+| G1 generation with the pipeline's motion command ("A robot walks forward and waves with the right hand.", 5 s, seed 42, 100 diffusion steps) | 150 frames × 34 joints, all finite, and a 150-row MuJoCo qpos CSV; 46 s including model loading, 15.3 GiB peak GPU memory |
+| Same generation on GPU and CPU from the same noise | joint positions differ by 0.51 cm on average and 1.08 cm at most |
+| Kimodo-related unit tests (`test_kimodo_frame`, `test_g1_interaction`, `test_interaction_sequence`, `test_reference_motion`, `test_metric_legs`) | 56 run, OK |
+
+Kimodo draws its diffusion noise on the device, so for the GPU/CPU comparison a
+small wrapper drew it on the CPU for both runs; the timing is from that wrapped
+GPU run. The G1 interaction batch (it needs RoomKit scenes), SMPL-X generation
+and Blender rendering and skinning were not run.
