@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from tools.gvhmr.samurai_tracking import gate_trailing_max, interpolate_centre_scale
+from tools.gvhmr.person_tracking import gate_trailing_max, interpolate_centre_scale
 
 
 class TrackingCropGateTests(unittest.TestCase):

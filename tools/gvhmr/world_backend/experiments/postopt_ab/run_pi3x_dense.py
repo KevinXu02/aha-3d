@@ -166,7 +166,7 @@ def main():
     ap.add_argument('--out', required=True)
     ap.add_argument('--pixel-limit', type=int, default=255000)
     ap.add_argument('--max-frames', type=int, default=0, help='0 = all frames')
-    ap.add_argument('--masks', help='SAMURAI masks.npz; also emit per-frame subject depth')
+    ap.add_argument('--masks', help='SAM3 masks.npz; also emit per-frame subject depth')
     a = ap.parse_args()
     out = Path(a.out)
     predictions_dir = out.with_name(out.stem + '-predictions')

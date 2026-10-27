@@ -4,10 +4,12 @@ from pathlib import Path
 import tempfile
 import unittest
 import importlib.util
+import os
 import numpy as np
 from tools.gvhmr.track_lifecycle import (track_active_mask, source_frame_mapping,
-    load_lifecycle, edge_exit_proposal, propagate_active, pad_inactive, write_lossless_prefix, normalized_source_times)
+    load_lifecycle, edge_exit_proposal, pad_inactive, write_lossless_prefix, normalized_source_times)
 
+PINNED_REPO = Path(os.environ.get('GVHMR_ROOT', Path(__file__).resolve().parents[1]/'.runtime/gvhmr-bedlam2'))
 
 class LifecycleTests(unittest.TestCase):
     def test_activity_is_not_missing_observation_support(self):
@@ -42,17 +44,8 @@ class LifecycleTests(unittest.TestCase):
         masks[4,3:8,9]=True
         proposal=edge_exit_proposal(masks);self.assertEqual(proposal['candidate'],5);self.assertTrue(proposal['requires_review'])
 
-    def test_bounded_model_evaluations_and_padding(self):
-        class Predictor:
-            def __init__(self):self.evaluated=[]
-            def propagate_in_video(self,state,*,start_frame_idx,max_frame_num_to_track,reverse):
-                frames=range(start_frame_idx,start_frame_idx-max_frame_num_to_track-1,-1) if reverse else range(start_frame_idx,start_frame_idx+max_frame_num_to_track+1)
-                for f in frames:self.evaluated.append(f);yield(f,[1],None)
-        active=np.arange(8)<5;p=Predictor()
-        self.assertEqual([v[0] for v in propagate_active(p,None,active,start_frame_idx=2)],[2,3,4])
-        self.assertEqual(p.evaluated,[2,3,4])
-        p=Predictor();list(propagate_active(p,None,active,start_frame_idx=2,reverse=True));self.assertEqual(p.evaluated,[2,1,0])
-        with self.assertRaises(ValueError):list(propagate_active(p,None,active,start_frame_idx=5))
+    def test_inactive_padding(self):
+        active=np.arange(8)<5
         a=np.arange(15,dtype=float).reshape(5,3);padded=pad_inactive(a,active)
         np.testing.assert_array_equal(padded[:5],a);np.testing.assert_array_equal(padded[5:],np.repeat(a[-1:],3,axis=0))
         self.assertTrue(np.isnan(pad_inactive(a,active,fill='nan')[5:]).all())
@@ -92,13 +85,13 @@ class LifecycleTests(unittest.TestCase):
             from tools.gvhmr.tracking_evidence import video_timeline
             np.testing.assert_array_equal(video_timeline(p/'prefix.avi')['time_seconds'],np.arange(5)/30)
 
-    @unittest.skipUnless(all(importlib.util.find_spec(k) is not None for k in ('torch','colorlog','pytorch3d','pytorch_lightning')),
+    @unittest.skipUnless((PINNED_REPO/'hmr4d').is_dir() and all(importlib.util.find_spec(k) is not None for k in ('torch','colorlog','pytorch3d','pytorch_lightning')),
                          'Optional pinned-helper integration requires separate GVHMR runtime')
     def test_real_adapter_stops_box_smoothing_and_preserves_missing_prefix_rows(self):
         import av,torch
-        from tools.gvhmr.samurai_tracking import prepare_gvhmr_boxes
+        from tools.gvhmr.person_tracking import prepare_gvhmr_boxes
         from tools.gvhmr.tracking_evidence import video_timeline,file_sha256,validated_detected
-        repo=Path(__file__).resolve().parents[1]/'.runtime/gvhmr-bedlam2'
+        repo=PINNED_REPO
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);video=root/'source.avi'
             with av.open(str(video),'w') as out:
@@ -108,10 +101,10 @@ class LifecycleTests(unittest.TestCase):
                 for packet in stream.encode():out.mux(packet)
             timeline=video_timeline(video);m=np.zeros((10,12,16),bool);m[2:5,2:10,4:12]=True;m[8,1:12,:]=True
             archive=root/'masks.npz';active=np.arange(10)<7
-            np.savez_compressed(archive,masks=m,time_seconds=timeline['time_seconds'],image_size=timeline['image_size'],source_video_sha256=np.array(file_sha256(video)),actor_id=np.array('target'))
+            np.savez_compressed(archive,masks=m,time_seconds=timeline['time_seconds'],image_size=timeline['image_size'],source_video_sha256=np.array(file_sha256(video)),actor_id=np.array('target'),tracker=np.array('SAM3'))
             result=prepare_gvhmr_boxes(archive,video,'target',repo,root/'boxes',track_active=active)
             prefix=torch.load(root/'boxes/bbx.pt',weights_only=True)['bbx_xyxy'];self.assertEqual(len(prefix),7)
-            full=np.load(root/'boxes/samurai_boxes.npz');self.assertTrue(np.isnan(full['smoothed_bbox_xyxy'][7:]).all())
+            full=np.load(root/'boxes/person_boxes.npz');self.assertTrue(np.isnan(full['smoothed_bbox_xyxy'][7:]).all())
             self.assertTrue(np.isfinite(full['smoothed_bbox_xyxy'][:7]).all())
             raw=json.loads((root/'boxes/raw_tracking.json').read_text());support=validated_detected(raw,timeline['time_seconds'],timeline['image_size'],file_sha256(video),full['smoothed_bbox_xyxy'])
             np.testing.assert_array_equal(support,[False,False,True,True,True,False,False,False,False,False])

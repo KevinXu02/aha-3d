@@ -28,7 +28,7 @@ def run(args):
     manifest = json.loads((args.run / 'provenance.json').read_text())
     if manifest.get('pose_detector') != 'pmpose':
         raise ValueError('Automatic low-evidence completion requires the PMPose input evidence')
-    if manifest.get('samurai_boxes', {}).get('mask_archive_sha256') != file_sha256(args.masks):
+    if manifest.get('person_boxes', {}).get('mask_archive_sha256') != file_sha256(args.masks):
         raise ValueError('Completion must use the exact masks consumed by this actor inference')
     with np.load(args.run / 'motion_native.npz', allow_pickle=False) as z:
         native = {key: z[key].copy() for key in z.files}

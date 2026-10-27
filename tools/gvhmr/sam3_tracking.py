@@ -29,9 +29,10 @@ def tracking_orders(anchor, count):
 
 
 def tracker_name(archive):
-    # Old SAMURAI archives predate the explicit tracker field.
-    name = str(np.asarray(archive['tracker']).item()) if 'tracker' in archive else 'SAMURAI'
-    if name not in ('SAM3', 'SAMURAI'):
+    if 'tracker' not in archive:
+        raise ValueError('Mask archive requires explicit SAM3 tracker provenance')
+    name = str(np.asarray(archive['tracker']).item())
+    if name != 'SAM3':
         raise ValueError('Unsupported mask tracker: ' + name)
     return name
 
@@ -102,7 +103,7 @@ def run(a):
         predictor_module.load_video_frames = original_loader
     if not seen.all():
         raise ValueError('Tracker did not cover the full source timeline')
-    from tools.gvhmr.samurai_tracking import mask_boxes
+    from tools.gvhmr.person_tracking import mask_boxes
     boxes, valid, area = mask_boxes(masks)
     fields = dict(masks=masks, time_seconds=times, image_size=np.asarray([w, h]),
                   source_frame_indices=np.arange(len(times)), tracker='SAM3', actor_id=a.actor_id,

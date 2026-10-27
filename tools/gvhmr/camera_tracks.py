@@ -196,7 +196,7 @@ def prepare_pi3x(bundle, times, image_size, source_sha256):
         world_alignment='one original Pi3X rigid world transform retained; no additional axis conversion',
         translation_use='preserved for provenance; ignored by GVHMR load_data_dict',
         intrinsics_use=('Pi3X K is stored as full-image K_fullimg_pi3x but unused by default (upstream estimate_K); '
-                        'samurai_reconstruct --intrinsics pi3x explicitly substitutes it'),
+                        'person_reconstruct --intrinsics pi3x explicitly substitutes it'),
         units=cameras.get('units'), camera_accuracy_validated=False, physical_accuracy_validated=False,
         implementation_sha256=file_sha256(__file__),
         versions={name:importlib.metadata.version(name) for name in ['numpy', 'scipy']},

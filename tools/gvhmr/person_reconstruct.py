@@ -14,7 +14,7 @@ def parser():
     p.add_argument('--video',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--actor-id',required=True);p.add_argument('--pi3x-bundle',type=Path,required=True)
     group=p.add_mutually_exclusive_group(required=True)
-    group.add_argument('--person-masks','--samurai-masks',dest='samurai_masks',type=Path);group.add_argument('--baseline-track-id',type=int)
+    group.add_argument('--person-masks',type=Path);group.add_argument('--baseline-track-id',type=int)
     p.add_argument('--gpu',type=int,help='Physical GPU index; default: inherited CUDA_VISIBLE_DEVICES, else device 0');p.add_argument('--seed',type=int,default=7)
     p.add_argument('--track-lifecycle',type=Path,help='Source-bound reviewed terminal-exit JSON; missing masks alone never stop tracking')
     p.add_argument('--repo',type=Path,default=ROOT/'.runtime/gvhmr-bedlam2')
@@ -26,7 +26,7 @@ def parser():
 
 def main():
     a=parser().parse_args()
-    if a.pose_detector == "pmpose" and a.samurai_masks is None:
+    if a.pose_detector == "pmpose" and a.person_masks is None:
         raise ValueError("PMPose requires source-person masks; choose --pose-detector vitpose for explicit YOLO control")
     for key in ("pmpose_python", "pmpose_root", "pmpose_checkpoint"):
         setattr(a, key, getattr(a, key).absolute())
@@ -39,11 +39,11 @@ def main():
     from tools.gvhmr.demo_entry import legacy_compatibility
     from tools.gvhmr.tracking_evidence import file_sha256,video_timeline,record_tracking_evidence
     from tools.gvhmr.camera_tracks import preload_pi3x_slam,verify_upstream
-    from tools.gvhmr.samurai_tracking import prepare_gvhmr_boxes,forbid_default_tracker
+    from tools.gvhmr.person_tracking import prepare_gvhmr_boxes,forbid_default_tracker
     from tools.gvhmr.track_lifecycle import load_lifecycle,write_lossless_prefix,pad_inactive
     legacy_compatibility();repo=a.repo.resolve(strict=True);upstream=verify_upstream(repo)
     output=a.output.resolve();video=a.video.resolve(strict=True);bundle=a.pi3x_bundle.resolve(strict=True)
-    if a.samurai_masks is not None:a.samurai_masks=a.samurai_masks.resolve(strict=True)
+    if a.person_masks is not None:a.person_masks=a.person_masks.resolve(strict=True)
     if a.track_lifecycle is not None:a.track_lifecycle=a.track_lifecycle.resolve(strict=True)
     if a.scene_ground is not None:a.scene_ground=a.scene_ground.resolve(strict=True)
     output.mkdir(parents=True,exist_ok=False);timeline=video_timeline(video);source_hash=file_sha256(video)
@@ -59,9 +59,9 @@ def main():
     from omegaconf import OmegaConf
     cfg=OmegaConf.load(repo/'hmr4d/configs/gvhmr_b1_demo.yaml');cfg.video_name=str(inference_video);cfg.output_dir=str(output);cfg.output_root=str(output);cfg.video_path=str(inference_video);cfg.static_cam=False;cfg.verbose=False;cfg.ckpt_path=str(repo/'inputs/checkpoints/gvhmr/gvhmr_b1b2.ckpt');OmegaConf.save(cfg,output/'demo.yaml');paths=cfg.paths;Path(cfg.preprocess_dir).mkdir()
     mode='default_yolo_explicit_actor_control'
-    if a.samurai_masks:
+    if a.person_masks:
         from tools.gvhmr.sam3_tracking import tracker_name
-        with np.load(a.samurai_masks,allow_pickle=False) as archive:mode=tracker_name(archive).lower()
+        with np.load(a.person_masks,allow_pickle=False) as archive:mode=tracker_name(archive).lower()
     report=dict(schema_version=1,status='running',tracker=mode,actor_id=a.actor_id,seed=a.seed,
         source_video_sha256=source_hash,normalized_input_sha256=source_hash,frames=timeline['frames'],source=str(video),camera_estimator='pi3x',
         intrinsics_estimator='unchanged upstream estimate_K' if a.intrinsics=='upstream' else 'reviewed Pi3X intrinsics (camera_adapter/camera_tracks.npz K_fullimg_pi3x)',upstream=upstream,execution=execution,
@@ -71,8 +71,8 @@ def main():
         track_active=active.tolist(),active_source_prefix=prefix,
         inactive_padding='Repeat last inferred pose only for full-timeline storage; no tracking, feature extraction, inference or visible body after terminal exit.')
     (output/'provenance.json').write_text(json.dumps(report,indent=2)+'\n')
-    if a.samurai_masks:
-        report['samurai_boxes']=prepare_gvhmr_boxes(a.samurai_masks,copied,a.actor_id,repo,Path(cfg.preprocess_dir),track_active=active,lifecycle=lifecycle)
+    if a.person_masks:
+        report['person_boxes']=prepare_gvhmr_boxes(a.person_masks,copied,a.actor_id,repo,Path(cfg.preprocess_dir),track_active=active,lifecycle=lifecycle)
         shutil.copyfile(Path(cfg.preprocess_dir)/'raw_tracking.json',output/'raw_tracking.json')
     report['camera']=preload_pi3x_slam(repo=repo,bundle=bundle,slam_path=paths.slam,output=output/'camera_adapter',times=timeline['time_seconds'],image_size=timeline['image_size'],source_sha256=source_hash)
     if end<len(active):
@@ -80,7 +80,7 @@ def main():
         torch.save(torch.load(paths.slam,weights_only=False)[:end],paths.slam)
     for path in (paths.vitpose,paths.vit_features,paths.hmr4d_results):
         if Path(path).exists():raise FileExistsError('Fresh per-actor caches required: '+str(path))
-    spec=importlib.util.spec_from_file_location('samurai_fresh_pinned_demo',repo/'tools/demo/demo.py');demo=importlib.util.module_from_spec(spec);spec.loader.exec_module(demo)
+    spec=importlib.util.spec_from_file_location('person_fresh_pinned_demo',repo/'tools/demo/demo.py');demo=importlib.util.module_from_spec(spec);spec.loader.exec_module(demo)
     calls={'vitpose_extract':0,'image_feature_extract':0,'pmpose_extract':0}
     report['pose_detector']=a.pose_detector
     if a.pose_detector == 'pmpose':
@@ -96,7 +96,7 @@ def main():
                 calls[key]+=1;t=time.monotonic();out=fn(self,*args,**kwargs);torch.cuda.synchronize();report['timings_seconds'][key]=time.monotonic()-t;return out
             return wrapped
         setattr(cls,name,make_wrapper(original,key))
-    guard=forbid_default_tracker(demo.Tracker) if a.samurai_masks else record_tracking_evidence(output/'raw_tracking.json',selected_track_id=a.baseline_track_id,actor_id=a.actor_id,expected_video=inference_video,time_seconds=timeline['time_seconds'][:end])
+    guard=forbid_default_tracker(demo.Tracker) if a.person_masks else record_tracking_evidence(output/'raw_tracking.json',selected_track_id=a.baseline_track_id,actor_id=a.actor_id,expected_video=inference_video,time_seconds=timeline['time_seconds'][:end])
     try:
         t=time.monotonic()
         with guard:demo.run_preprocess(cfg)
@@ -146,7 +146,7 @@ def main():
             old=torch.load(actual/'preprocess'/Path(target).name,map_location='cpu',weights_only=True)
             torch.save(torch.from_numpy(pad_inactive(old.numpy(),active,fill='zero')),target)
         shutil.copyfile(output/'camera_adapter/full_source_slam.pt',paths.slam)
-        if not a.samurai_masks:
+        if not a.person_masks:
             from tools.gvhmr.tracking_evidence import build_tracking_evidence,array_sha256
             raw=json.loads((output/'raw_tracking.json').read_text());(actual/'raw_tracking.json').write_text(json.dumps(raw,indent=2)+'\n')
             raw=build_tracking_evidence(raw['raw_history']+[[]]*(len(active)-end),timeline['time_seconds'],timeline['image_size'],source_path=copied,source_sha256=source_hash,selected_track_id=a.baseline_track_id,actor_id=a.actor_id)
@@ -159,7 +159,7 @@ def main():
     for group in ('smpl_params_global','smpl_params_incam'):
         for key,val in pred[group].items():arrays[group+'__'+key]=val.numpy()
     np.savez_compressed(output/'motion_native.npz',**arrays)
-    report.update(status='completed',default_tracker_forbidden=bool(a.samurai_masks),quality_accepted=False,
+    report.update(status='completed',default_tracker_forbidden=bool(a.person_masks),quality_accepted=False,
         output_sha256={str(Path(x).relative_to(output)):file_sha256(x) for x in [paths.bbx,paths.vitpose,paths.vit_features,paths.slam,paths.hmr4d_results,output/'motion_native.npz',output/'actual_model_inputs.npz',output/'raw_tracking.json']},checkpoint_sha256=file_sha256(cfg.ckpt_path))
     assert file_sha256(copied)==source_hash
     (output/'provenance.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(dict(status='completed',output=str(output),tracker=mode,calls=calls,timings=report['timings_seconds'])),flush=True)

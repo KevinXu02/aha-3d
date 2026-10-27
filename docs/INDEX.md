@@ -34,7 +34,7 @@ precedence. When editing a policy, update conflicting entrypoints in the same ch
 | Project skills | [Skill index](../TOOLS_AND_SKILLS.md) |
 | Reusable source-motion contact repair | [Contact refinement](CONTACT_REFINEMENT.md) |
 | Current scene/human pipeline and where GPT-6 participates | [Scripts and GPT-6 review](HUMAN_PIPELINE_GUIDE.md) |
-| SAMURAI exits, fixed-body trajectory and contact constraints | [Human tracking and trajectory](HUMAN_TRACKING_AND_TRAJECTORY.md) |
+| Actor exits, fixed-body trajectory and contact constraints | [Human tracking and trajectory](HUMAN_TRACKING_AND_TRAJECTORY.md) |
 | Resumable human experiments and automatic inspection | [Human automation](HUMAN_AUTOMATION.md), [Runner interface](../tools/human_experiments/RUNNER.md) |
 | Experimental bounded trajectory optimization | [Trajectory refinement](TRAJECTORY_REFINEMENT.md) |
 | TSDF core, retained background, measurements and native-view overlays | [Pi3X geometry reference](PI3X_GEOMETRY_REFERENCE.md) |

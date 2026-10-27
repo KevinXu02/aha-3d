@@ -1,15 +1,15 @@
 """Exercise the source-tracking launcher's local device contract."""
 import unittest
 
-from tools.gvhmr.samurai_reconstruct import parser
+from tools.gvhmr.person_reconstruct import parser
 from tools.gvhmr.run import configure_execution
 
 
-class SamuraiExecutionTests(unittest.TestCase):
+class PersonExecutionTests(unittest.TestCase):
     def arguments(self, *extra):
         return parser().parse_args([
             '--video', 'source.mp4', '--output', 'new-run', '--actor-id', 'actor',
-            '--pi3x-bundle', 'cameras', '--samurai-masks', 'masks.npz', *extra,
+            '--pi3x-bundle', 'cameras', '--person-masks', 'masks.npz', *extra,
         ])
 
     def test_default_preserves_inherited_devices(self):

@@ -129,7 +129,7 @@ is not made reproducible by hashing. Declare random seeds explicitly.
 Reuse is within one run directory. For existing expensive outputs from other
 runs, declare them as pinned external inputs and use a clearly named adoption/
 verification stage if needed. Its timing is verification/copy time, **not** a new
-Pi3X, SAMURAI or GVHMR inference measurement. No cross-run shared output is mutated.
+Pi3X, SAM3 or GVHMR inference measurement. No cross-run shared output is mutated.
 
 ## Decisions, failure and interruption
 

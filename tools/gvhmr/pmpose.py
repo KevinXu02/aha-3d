@@ -21,13 +21,13 @@ def add_arguments(parser):
 
 
 def extract(a, video, boxes, output, frames):
-    if a.samurai_masks is None:
+    if a.person_masks is None:
         raise ValueError('PMPose requires source-person masks; use --pose-detector vitpose for the explicit YOLO control')
     env = os.environ.copy()
     if a.pmpose_ld_preload:
         env['LD_PRELOAD'] = a.pmpose_ld_preload
     argv = [str(a.pmpose_python.absolute()), str(Path(__file__).resolve()),
-            '--video', str(video), '--boxes', str(boxes), '--masks', str(a.samurai_masks),
+            '--video', str(video), '--boxes', str(boxes), '--masks', str(a.person_masks),
             '--output', str(output), '--frames', str(frames),
             '--root', str(a.pmpose_root.absolute()), '--checkpoint', str(a.pmpose_checkpoint.absolute()),
             '--variant', a.pmpose_variant]

@@ -48,7 +48,7 @@ class WorldPostoptTests(unittest.TestCase):
                       track_active=np.array([1, 1, 1, 0]))
         camera = dict(c2w=np.tile(np.eye(4), (4, 1, 1)), time_seconds=np.arange(4) / 30,
                       camera_source='pi3x_dense_single_pass')
-        provenance = dict(actor_id='actor', tracker='samurai', camera_estimator='pi3x')
+        provenance = dict(actor_id='actor', tracker='sam3', camera_estimator='pi3x')
         self.assertEqual(postopt.validate_inputs(native, camera, provenance, 'actor'), 30.)
         for change, expected in [({'camera_source': 'pi3x_interpolated'}, 'dense'),
                                  ({'time_seconds': np.arange(4) / 24}, 'timestamps')]:

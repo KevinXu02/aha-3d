@@ -27,7 +27,7 @@ ordinary solver comparisons reuse them without repeating visual interpretation.
 
 Use the [human runner](../tools/human_experiments/RUNNER.md) for a resumable graph of
 existing commands. It complements the [scene recipe pipeline](PIPELINE.md): it can
-coordinate Pi3X, SAMURAI/GVHMR, cached observations, correction, inspection and
+coordinate Pi3X, SAM3/GVHMR, cached observations, correction, inspection and
 delivery commands without forcing every experiment through Kimodo generation.
 It runs in the configured local environment and does not reserve GPUs; run one GPU stage at a time.
 

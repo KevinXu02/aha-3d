@@ -50,7 +50,7 @@ exit code. Inspect those and the run reports.
 ## Recipes and stages
 
 For requested source-motion comparisons, the optional
-[full world-postopt pipeline](WORLD_POSTOPT.md) runs fresh SAMURAI tracking,
+[full world-postopt pipeline](WORLD_POSTOPT.md) runs fresh SAM3 tracking,
 bbox/lifecycle processing, PMPose/GVHMR, dense Pi3X, adaptation, v2 and review
 through the resumable human-experiment runner. It compares GVHMR global postprocessing, camera-lifted initialization and corrected
 v2 using foot slip, contact height and root acceleration. Per-person placement

@@ -35,7 +35,7 @@ python tools/gvhmr/world_pipeline.py prepare \
   --actor-id REVIEWED_ACTOR --box 100 100 400 650 --prompt-frame 0 \
   --lifecycle-review /path/to/source_reviewed_lifecycle.json \
   --pi3x-bundle /path/to/reviewed_same_shot_bundle \
-  --tracker sam3 --sam3 /path/to/sam3 \
+  --sam3 /path/to/sam3 \
   --sam3-python /path/to/sam3/venv/bin/python --sam3-checkpoint /path/to/sam3.pt \
   --gvhmr-repo /path/to/GVHMR_BEDLAM2 \
   --pmpose-python /path/to/bmp/venv/bin/python --pmpose-root /path/to/BBoxMaskPose \
@@ -50,15 +50,12 @@ bash tools/human_experiments/run.sh execute \
   --run-dir runs/_tools/world-postopt/EXPERIMENT/run
 ```
 
-Both frontends run on the local GPU; `--gpu` is optional (default: an inherited
+Tracking runs on the local GPU; `--gpu` is optional (default: an inherited
 single-device `CUDA_VISIBLE_DEVICES`, else device 0). GVHMR's default intrinsics
 (`estimate_K`) use the image diagonal as focal length, a fixed 53° diagonal field of
 view; add `--intrinsics pi3x` to use the reviewed same-shot Pi3X intrinsics for
-wider or narrower lenses. The default remains `upstream`. Supply any separately
-installed SAMURAI dependencies with `--samurai-deps /path/to/dependencies`.
-Normally install `iopath`, `portalocker` and `loguru` in the GVHMR environment;
-the packaged tracker does not search old run folders.
-Both tracking frontends currently require 1280×720, normalized 30 Hz sources;
+wider or narrower lenses. The default remains `upstream`.
+SAM3 tracking currently requires 1280×720, normalized 30 Hz sources;
 the wrapper rejects other raster sizes. No runtime is installed or modified by this tool.
 
 Tracking creates a fresh predictor per propagation direction. A later prompt
@@ -130,8 +127,8 @@ Changing upstream code requires a new preparation, not edits to its frozen copy.
 For this shorter command, preparation snapshots the required upstream files and the integration entry point;
 the runner hashes source, body model, predictions, boxes, keypoints, native motion,
 provenance, dense camera and camera report. Existing inference is reused, not
-reported as newly run SAMURAI/GVHMR/Pi3X. The adapter requires matching actor IDs,
-SAM3 or SAMURAI tracking and Pi3X camera provenance, full dense timestamps and
+reported as newly run SAM3/GVHMR/Pi3X. The adapter requires matching actor IDs,
+SAM3 tracking and Pi3X camera provenance, full dense timestamps and
 unchanged active-frame indices.
 Use trusted model/result files: upstream Torch/joblib caches are executable pickle.
 
@@ -394,18 +391,18 @@ first scoped change; broader objective/pose refinement remains pending.
 
 ## SAM3 source tracking default
 
-New `world_pipeline.py prepare` graphs default to `--tracker sam3`, followed by
+`world_pipeline.py prepare` graphs use SAM3, followed by
 the unchanged `world_tracking` trailing-maximum bbox gate, centre/extent gap
 interpolation, two five-frame moving averages and 1.2x GVHMR crop. PMPose-h
 remains the default detector and consumes the original SAM3 masks with the
-smoothed boxes. `--tracker samurai --samurai ROOT --samurai-checkpoint MODEL`
-retains the previous control. Saved graphs without a tracker field retain SAMURAI.
+smoothed boxes. Reusable tracking inputs must explicitly record SAM3 provenance;
+old tracker graphs and unidentified mask archives are not current-route inputs.
 
 Set `SAM3_ROOT`, `SAM3_PYTHON`, `SAM3_CHECKPOINT`, or the corresponding
 `--sam3`, `--sam3-python`, `--sam3-checkpoint` flags. SAM3 uses its own interpreter
 and requires 1280x720 at 30 Hz. Late prompts run fresh forward and reversed
 prefix states, preserving source timestamps. Track provenance records SAM3;
-`--person-masks` is the neutral reconstruction argument (`--samurai-masks` stays
-a compatible alias). This default does not establish tracker superiority.
+`--person-masks` supplies masks to reconstruction. This route does not establish
+tracker superiority.
 Mask/crop support is separate from physical exits and pose identity: the real
 clip32 pilot showed foreground pose contamination during heavy occlusion.

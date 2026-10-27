@@ -113,9 +113,8 @@ Asset replacement, when requested, follows the stable-ID library contract.
 
 ## 4. Track each source actor with SAM3
 
-The full graph defaults to `--tracker sam3`. Review an anchor image and actor
-bbox, then propagate SAM3 instance masks. Use `--tracker samurai` with explicit
-SAMURAI paths for a matched control. Configure SAM3 with `--sam3`,
+The full graph uses SAM3. Review an anchor image and actor bbox, then propagate
+instance masks. Configure SAM3 with `--sam3`,
 `--sam3-python`, `--sam3-checkpoint` (or `SAM3_ROOT`, `SAM3_PYTHON`,
 `SAM3_CHECKPOINT`). SAM3 runs in its own runtime on the local GPU; PMPose retains its
 separate interpreter. The remaining 30 Hz graph and scene-ground scope are unchanged.
@@ -158,7 +157,7 @@ silently extending an interpolated crop.
 
 ## 6. Extract mask-conditioned 2D pose with PMPose (new default)
 
-`tools/gvhmr/samurai_reconstruct.py` and `world_pipeline.py prepare` default to
+`tools/gvhmr/person_reconstruct.py` and `world_pipeline.py prepare` default to
 `--pose-detector pmpose`, variant `PMPose-h`. Use the actual per-frame source-person mask
 and the same prepared bbox consumed by GVHMR. PMPose's merged COCO/AIC/MPII output
 has 23 joints; retain its first 17 in canonical COCO order, full-image pixel
@@ -420,7 +419,8 @@ preference is withdrawn; room acceptance remains separate from the implemented g
 The v2 numbers below predate the corrected optimizer. They must not be used to
 rank the current v2 against GVHMR; see [current comparison](WORLD_POSTOPT.md).
 
-Fresh full graphs completed for clip32 (260/260 active frames) and clip42
+These historical runs used the retired SAMURAI frontend; they do not describe
+the current SAM3 interface. Fresh full graphs completed for clip32 (260/260 active frames) and clip42
 (245/302 active frames), including new SAMURAI, PMPose, features, GVHMR, dense
 Pi3X, v2 and review. The previous ViTPose runs serve as recorded controls. New
 masks, actual bboxes and dense cameras were exactly equal to those controls.
@@ -453,8 +453,7 @@ remaining occlusion, identity and camera-drift limitations.
 ## Portable motion installation
 
 The [human-motion installation guide](install/human-motion.md) records the
-GVHMR/dense-Pi3X environment, separate SAM3 and PMPose environments, and the
-optional SAMURAI control. The
+GVHMR/dense-Pi3X environment and separate SAM3 and PMPose environments. The
 owner-authored v2 optimizer and helpers now live in `tools/gvhmr/world_backend/`;
 `world_pipeline.py prepare` uses them by default without a PromptHMR checkout.
 Upstream model libraries, weights and licensed body models remain external.

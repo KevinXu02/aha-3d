@@ -50,7 +50,6 @@ export PI3X_UPSTREAM="$R2S/external/Pi3"
 | --- | --- |
 | GVHMR BEDLAM2 | [upstream](https://github.com/mkocabas/GVHMR_BEDLAM2), `cac2d9dacc6b4b6f145ca02c2e6e616719fff916` |
 | Pi3/Pi3X | [upstream](https://github.com/yyfz/Pi3), `9fa3ddb3f8d53041f8b2738df404f62223bbaa7b` |
-| SAMURAI (optional alternative tracker) | [upstream](https://github.com/yangchris11/samurai), installed source copy taken 2026-09-13; original commit not recorded |
 | BBoxMaskPose/PMPose | [upstream](https://github.com/MiraPurkrabek/BBoxMaskPose), installed package 2.0.0 with bundled MMPose 1.3.1, taken 2026-09-17; original commit not recorded; [smoke-tested revision](https://github.com/MiraPurkrabek/BBoxMaskPose/commit/49a070a6f8396147323b1c4959474077dbe2ce8e) `49a070a6f8396147323b1c4959474077dbe2ce8e` |
 
 The original deployed BBoxMaskPose commit is a reproducibility limit. For a new
@@ -65,10 +64,6 @@ git clone https://github.com/MiraPurkrabek/BBoxMaskPose "$BMP_ROOT"
 git -C "$BMP_ROOT" checkout --detach "$BMP_REVISION"
 ```
 
-For the explicit `--tracker samurai` route only, choose and record a reviewed
-SAMURAI revision before cloning it into `$R2S/third_party/samurai`. The
-historical source copy's commit was not recorded.
-
 ## GVHMR and dense cameras
 
 First install the dedicated environment using [GVHMR's recipe](gvhmr.md),
@@ -82,10 +77,6 @@ Add the small tracking/camera dependencies to that environment:
 ```
 
 The default tracker uses Static's SAM3 runtime with PyAV, as configured below.
-The optional SAMURAI route imports its own `sam2` and decodes with PyAV; it does
-not require the upstream Decord/JPEG-folder route or old
-`runs/.../python-dependencies` and `runs/.../samurai/deps` directories.
-`--samurai-deps` remains available for that explicitly configured route.
 
 Install Pi3 at the revision above following [Pi3X installation](pi3x.md).
 The dense-camera helper runs in the GVHMR environment, adds `--pi3` to its import
@@ -161,7 +152,6 @@ to Git. The installed names expected by the wrappers are:
 | `.runtime/gvhmr-bedlam2/inputs/checkpoints/body_models/smplx/SMPLX_NEUTRAL.npz` | Authorized [SMPL-X](https://smpl-x.is.tue.mpg.de/) assets |
 | `.runtime/gvhmr-bedlam2/inputs/checkpoints/body_models/smpl/SMPL_NEUTRAL.pkl` | Authorized [SMPL](https://smpl.is.tue.mpg.de/) assets for GVHMR's renderer |
 | `.runtime/pi3x/checkpoint/model.safetensors` | [Pi3X](https://huggingface.co/yyfz233/Pi3X), model revision `bb1deea4d7423de5b30691739cb451a3f57dc1d5` |
-| `.runtime/samurai-checkpoints/sam2.1_hiera_base_plus.pt` (optional SAMURAI route) | [SAM2.1 checkpoint](https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_base_plus.pt) |
 | `.runtime/bmp/checkpoints/PMPose-h-1.0.0.pth` | [BBoxMaskPose model repository](https://huggingface.co/vrg-prague/BBoxMaskPose/tree/main/PMPose) |
 
 ViTPose weights are needed for the explicit `--pose-detector vitpose` route.
@@ -192,8 +182,7 @@ video timing. Existing experiment snapshots retain their original source files.
 
 Reuse the installed SAM3 checkpoint/runtime through `SAM3_ROOT`, `SAM3_PYTHON`
 and `SAM3_CHECKPOINT`. The main graph runs tracking in that interpreter and
-PMPose in `PMPOSE_PYTHON`; installing SAMURAI is needed only for the explicit
-`--tracker samurai` control. The SAM3 frontend runs on the local GPU.
+PMPose in `PMPOSE_PYTHON`. The SAM3 frontend runs on the local GPU.
 The [reference installer](../PI3X_GEOMETRY_REFERENCE.md#runtime) checks SAM3's
 image API for `build_reference`; source-person tracking also decodes the full
 video with PyAV. Add it to that same standalone SAM3 runtime before running the

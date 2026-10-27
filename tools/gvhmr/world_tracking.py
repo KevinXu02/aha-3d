@@ -1,4 +1,4 @@
-"""Opt-in world-postopt bbox policy; the default SAMURAI adapter stays unchanged."""
+"""World-postopt bbox policy for the shared source-person mask adapter."""
 from contextlib import contextmanager
 import json
 from pathlib import Path
@@ -72,7 +72,7 @@ def install_policy():
     No installed or shared source file is modified. This works on clean mainline
     as well as a checkout with independently edited default tracking code.
     """
-    from tools.gvhmr import samurai_tracking as base
+    from tools.gvhmr import person_tracking as base
     original_prepare, original_dense = base.prepare_gvhmr_boxes, base.dense_upstream_boxes
 
     def prepare(mask_archive, expected_video, actor_id, repo, output_dir, **kwargs):
@@ -94,14 +94,14 @@ def install_policy():
                                        'mask fill >= 0.25; centre/extent interpolation, two 5-frame averages; crop 1.2x')
         raw['world_bbox_implementation_sha256'] = base.file_sha256(__file__)
         raw_path.write_text(json.dumps(raw, indent=2, allow_nan=False) + '\n')
-        with np.load(output / 'samurai_boxes.npz') as z:
+        with np.load(output / 'person_boxes.npz') as z:
             keep = gate_trailing_max(z['raw_bbox_xyxy'], z['mask_nonempty'], area=z['mask_area_pixels'])
         report.update(world_bbox_implementation_sha256=base.file_sha256(__file__),
                       bbox_accepted_frames=np.flatnonzero(keep).tolist(),
                       bbox_unsupported_frames=np.flatnonzero(~keep).tolist(),
                       interpolation_policy=raw['interpolation_policy'])
         report['outputs']['raw_tracking.json'] = base.file_sha256(raw_path)
-        (output / 'samurai_boxes.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
+        (output / 'person_boxes.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
         return report
 
     base.prepare_gvhmr_boxes = prepare

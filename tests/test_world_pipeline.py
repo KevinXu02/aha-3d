@@ -44,8 +44,8 @@ class WorldPipelineTests(unittest.TestCase):
             dest = root / 'prepared'
             args = argparse.Namespace(out=dest, prompt_hmr=upstream, python=Path(sys.executable),
                 smplx_model=model, actor_id='actor', gpu=0, video=model, pi3x_bundle=bundle,
-                lifecycle_review=model, samurai=root, samurai_checkpoint=model, samurai_deps=[],
-                tracker='samurai', pose_detector='pmpose', pmpose_python=Path(sys.executable), pmpose_root=root/'bmp',
+                lifecycle_review=model, sam3=root/'sam3', sam3_checkpoint=model, sam3_python=Path('/sam3/python'),
+                pose_detector='pmpose', pmpose_python=Path(sys.executable), pmpose_root=root/'bmp',
                 pmpose_checkpoint=model, pmpose_variant='PMPose-h', pmpose_ld_preload='',
                 gvhmr_repo=gvhmr, pi3=root, pi3_checkpoint=model, box=[1, 2, 3, 4], prompt_frame=0)
             pipeline.prepare(args)
@@ -66,18 +66,10 @@ class WorldPipelineTests(unittest.TestCase):
             self.assertNotIn('v1', stages)
             self.assertFalse(stages['v2']['params']['optimizer']['postopt_optimize_scale'])
             self.assertNotEqual(stages['bodies']['params']['snapshot'], str(ROOT))
-            args.out = root/'sam3-prepared'; args.tracker = 'sam3'
-            args.samurai = None; args.samurai_checkpoint = None
-            args.sam3 = root/'sam3'; args.sam3_python = Path('/sam3/python')
-            args.sam3_checkpoint = model
-            pipeline.prepare(args)
-            load_config(args.out/'experiment.json')
-            sam3_stages = {s['id']: s for s in json.loads((args.out/'experiment.json').read_text())['stages']}
-            self.assertEqual(sam3_stages['track']['params']['tracker'], 'sam3')
-            self.assertEqual(sam3_stages['track']['params']['sam3_python'], '/sam3/python')
-            self.assertEqual(sam3_stages['track']['inputs']['checkpoint']['path'], str(model))
-            self.assertEqual(sam3_stages['bodies']['params']['pose_detector'], 'pmpose')
-            self.assertEqual(sam3_stages['bodies']['inputs']['masks'], {'stage':'track', 'output':'masks'})
+            self.assertEqual(stages['track']['params']['tracker'], 'sam3')
+            self.assertEqual(stages['track']['params']['sam3_python'], '/sam3/python')
+            self.assertEqual(stages['track']['inputs']['checkpoint']['path'], str(model))
+            self.assertFalse(any(k.startswith('samurai') for k in stages['track']['params']))
             prior = root/'ground.json'
             prior.write_text(json.dumps(dict(source_video_sha256=pipeline.post.fingerprint(model)['sha256'],
                 coordinate_frame='pi3x-aligned-world', scale=1, accepted=True, evidence='test reviewed floor',

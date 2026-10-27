@@ -130,8 +130,8 @@ def validate_inputs(native, cameras, provenance, actor):
     import numpy as np
     if str(native['source_actor_id']) != actor or provenance['actor_id'] != actor:
         raise ValueError('Actor identity mismatch')
-    if provenance.get('tracker') not in ('samurai', 'sam3') or provenance.get('camera_estimator') != 'pi3x':
-        raise ValueError('Requires SAM3 or SAMURAI tracking and Pi3X camera provenance')
+    if provenance.get('tracker') != 'sam3' or provenance.get('camera_estimator') != 'pi3x':
+        raise ValueError('Requires SAM3 tracking and Pi3X camera provenance')
     fps = float(native['fps'])
     times = np.asarray(native['frame_times_seconds'])
     if not math.isfinite(fps) or fps <= 0 or len(times) < 3:

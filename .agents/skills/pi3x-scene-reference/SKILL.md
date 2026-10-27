@@ -1,64 +1,55 @@
 ---
 name: pi3x-scene-reference
-description: Generate Pi3X room reference geometry, timestamped cameras, and source-colored dimensioned views with source-linked measurements. Use for bird's-eye or side references, approximate room/object dimensions, and scale calibration from video or cached predictions.
+description: Generate Pi3X geometry, cameras and source-linked measurements. Use for room reference views, approximate dimensions or scale calibration from video or cached predictions.
 ---
 
 # Pi3X scene references
 
-Produce source-linked geometry, cameras and dimensioned views for editable room
-authoring. Keep observations, fitted surfaces and inferred hidden bounds distinct.
-User instructions govern scope; follow project ownership and [runtime](../../../MACHINE.md) rules.
+Produce reference geometry, cameras and dimensioned views for editable room authoring.
+Keep observed surfaces, fitted geometry and inferred hidden bounds distinct.
+
+## Workflow
+
+| Stage | Action and output | Before advancing |
+| --- | --- | --- |
+| Select source | Continuous video shot with original frame IDs/PTS | Use 32 frames by default or the 64-frame tier across the full shot, every frame for shorter clips |
+| Reconstruct and align | Same-shot predictions, reference mesh and matching cameras | Review floor/wall support; retain one shared rigid basis for points and cameras |
+| Measure | Source-linked endpoints, dimensions and diagrams | Use eligible source geometry and explicit floor/scale evidence; label missing or inferred bounds |
+| Deliver | Reviewed views, measurement files and camera handoff | Check source agreement, labels and coverage; state scale/floor uncertainty |
 
 ## Choose the operation
 
-- **New video:** read [reconstruction](references/reconstruction.md); run
-  `python -m tools.layout_inspection.build_reference` for Pi3X, SAM3, alignment,
-  meshing and source overlays. Use one continuous shot and preserve frame IDs/PTS.
-- **Floor/up/wall axes:** read [structural alignment](../../../docs/STRUCTURAL_ALIGNMENT.md).
-  Review floor/wall masks and plane support. Camera-up alone establishes no floor.
-  Preserve an existing room basis unless deliberately migrating room and cameras.
-- **Cached dimensions/diagrams:** read [measurements](references/measurements.md);
-  run `scripts/measure.py`, passing `--cameras` for the final aligned basis.
-  Reuse predictions for changes to labels, display slices or scale cues.
-- **Surface dimensions:** read [mesh measurements](references/mesh-measurements.md)
-  or [furniture measurements](references/furniture.md). Use source corners or
-  reviewed SAM3 masks; visible extents do not establish complete furniture bounds.
-- **Room authoring:** use [Blender RoomKit](../blender-roomkit/SKILL.md) in the same
-  reference basis, then run [matched layout inspection](../../../docs/LAYOUT_INSPECTION.md).
-- **Human depth/camera handoff, only when requested:** read
-  [tracking and trajectory](../../../docs/HUMAN_TRACKING_AND_TRAJECTORY.md).
-  Keep these observations separate from static geometry; follow
-  [motion policy](../../../docs/MOTION_CONTROLS.md).
+| Need | Read or run |
+| --- | --- |
+| New video or cached reference rebuild | [Reconstruction](references/reconstruction.md), `python -m tools.layout_inspection.build_reference` |
+| Floor/up/wall axes | [Structural alignment](../../../docs/STRUCTURAL_ALIGNMENT.md); preserve an existing room basis unless migrating room and cameras together |
+| Cached dimensions/diagrams | [Measurements](references/measurements.md), `scripts/measure.py` with final aligned `--cameras` |
+| Surface or furniture dimensions | [Mesh measurements](references/mesh-measurements.md), [furniture measurements](references/furniture.md) |
+| Author a room from the reference | [RoomKit](../blender-roomkit/SKILL.md), then [matched layout inspection](../../../docs/LAYOUT_INSPECTION.md) |
+| Requested human depth/camera handoff | [Tracking and trajectory](../../../docs/HUMAN_TRACKING_AND_TRAJECTORY.md), under [motion policy](../../../docs/MOTION_CONTROLS.md) |
 
-## Preserve these invariants
+## Geometry and measurement contract
 
-- Use the 32-frame default or 64-frame tier over the full shot; shorter videos use
-  every frame. Semantics and meshing consume all inference frames. Display-view
-  selection never reduces reconstruction coverage.
-- Default to the 3 cm TSDF core plus visible context. For fusion/filter details,
-  read [geometry reference](../../../docs/PI3X_GEOMETRY_REFERENCE.md) when needed.
-  Measurements use source triangles and `measurement_valid`, not display patches.
-  People are excluded; glass/mirrors remain explicitly uncertain.
-- Keep one rigid transform shared by points and cameras. Uniform metric correction
-  is separate and applies to geometry, dimensions and camera translations together.
-  Pi3X scale is predicted; assumed object sizes are assumptions. Reprojection
-  agreement and model confidence do not establish physical accuracy.
-- Choose measurement endpoints from actual source frames. Retain source pixels,
-  timestamps and selection rationale; reject unreliable depth edges. Missing
-  geometry is unknown, not free space. Height requires an explicit floor basis.
-- SAM3 labels source pixels; native object outlines highlight authored geometry.
-  Inspect identity, occlusion and front details. Check source agreement across
-  views rather than accepting a fit score or a generated report.
+Default to the [3 cm TSDF core plus visible context](../../../docs/PI3X_GEOMETRY_REFERENCE.md).
+Semantics and meshing consume all inference frames; display selection does not reduce
+coverage. Measurements use source triangles and `measurement_valid`, excluding people;
+glass, mirrors and missing geometry remain uncertain. Reuse predictions for cosmetic
+changes to diagrams. SAM3 labels source pixels; native outlines show authored objects.
 
-## Deliver and inspect
+Retain actual source pixels, timestamps and endpoint-selection rationale; reject
+unreliable depth edges. Visible extents are not complete furniture bounds, and height
+requires a reviewed floor. Uniform metric correction applies to geometry, dimensions
+and camera translations together, separately from the rigid transform. Pi3X scale is
+predicted; assumed sizes, camera-up, confidence and reprojection alone do not establish
+physical scale or a floor. Source pixel IDs record provenance, not physical tracks.
 
-Provide plan/front/side views and 3–5 native source-camera overlays (five by
-default), spanning distinct visible regions and early/middle/late times. Initial
-reference overlays need no authored room; once a room exists, add matched model
-edge comparisons and label which geometry is shown.
+## Delivery
+
+Provide plan/front/side views and 3–5 native source overlays (five by default), covering
+distinct regions and early/middle/late video times. Once a room exists, add matched
+model-edge comparisons and label the geometry shown.
 
 For measurements, deliver `MEASUREMENTS.md`, diagrams, JSON/CSV and `cameras.json`.
-Inspect arrows, endpoints, units and timestamp labels; retain source RGB and
-scale/floor limitations. Source pixel IDs are provenance, not tracked physical
-points. Sparse camera keys need an explicit interpolation policy and playback
-review before being used as a full-rate animated camera.
+Inspect arrows, endpoints, units and timestamps against retained source RGB. Sparse
+camera keys require an explicit interpolation policy and playback review before
+full-rate animated-camera use.

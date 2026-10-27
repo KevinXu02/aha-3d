@@ -17,7 +17,7 @@ from pmpose import add_arguments
 ROOT = Path(__file__).resolve().parents[2]
 # The public script also runs from an uninstalled checkout or a source snapshot.
 sys.path[:0] = [str(ROOT), str(ROOT / 'src')]
-FRONTEND_FILES = ('run_samurai.py', 'run_pi3x_dense.py')
+FRONTEND_FILES = ('run_pi3x_dense.py',)
 
 
 def source_files(folder):
@@ -27,9 +27,6 @@ def source_files(folder):
 
 
 def prepare(a):
-    tracker = getattr(a, 'tracker', 'sam3')
-    if tracker == 'samurai' and (not a.samurai or not a.samurai_checkpoint):
-        raise ValueError('SAMURAI requires --samurai and --samurai-checkpoint')
     gpu = a.gpu
     if gpu is None:
         visible = os.environ.get('CUDA_VISIBLE_DEVICES', '0').strip()
@@ -69,17 +66,13 @@ def prepare(a):
                PYTHONPATH=str(snapshot) + os.pathsep + str(snapshot / 'src'))
     params = dict(project_root=str(ROOT), snapshot=str(snapshot), upstream=str(upstream),
                   actor_id=a.actor_id, prompt_frame=a.prompt_frame, box=a.box,
-                  tracker=tracker,
-                  samurai=str(a.samurai.resolve()) if a.samurai else None,
-                  samurai_checkpoint=str(a.samurai_checkpoint.resolve()) if a.samurai_checkpoint else None,
-                  samurai_deps=[str(p.resolve()) for p in a.samurai_deps],
+                  tracker='sam3', sam3=str(a.sam3.resolve()),
+                  sam3_python=str(a.sam3_python.absolute()),
                   gvhmr_repo=str(a.gvhmr_repo.resolve()), pi3=str(a.pi3.resolve()),
                   gpu=gpu, pose_detector=a.pose_detector, intrinsics=getattr(a, 'intrinsics', 'upstream'),
                   pmpose_python=str(a.pmpose_python.absolute()), pmpose_root=str(a.pmpose_root.absolute()),
                   pmpose_checkpoint=str(a.pmpose_checkpoint.absolute()), pmpose_variant=a.pmpose_variant,
                   pmpose_ld_preload=a.pmpose_ld_preload)
-    if tracker == 'sam3':
-        params.update(sam3=str(a.sam3.resolve()), sam3_python=str(a.sam3_python.absolute()))
     scene_ground = getattr(a, 'scene_ground', None)
     params['kimodo_completion'] = kimodo_completion
     if kimodo_completion:
@@ -94,12 +87,10 @@ def prepare(a):
                     argv=argv, code=code, params=dict(params, **(extra or {})), env=env)
     def ref(stage, output): return dict(stage=stage, output=output)
     video, model = post.fingerprint(a.video), post.fingerprint(a.smplx_model)
-    stages = [stage('track', [], dict(video=video, checkpoint=post.fingerprint(a.sam3_checkpoint if tracker == 'sam3' else a.samurai_checkpoint)),
+    stages = [stage('track', [], dict(video=video, checkpoint=post.fingerprint(a.sam3_checkpoint)),
                     dict(masks='masks.npz', report='tracking.json'))]
     stages[0]['params']['source_video_sha256'] = video['sha256']
-    stages[0]['code'] = code + source_files(a.sam3 / 'sam3' if tracker == 'sam3' else a.samurai / 'sam2/sam2')
-    for folder in a.samurai_deps:
-        stages[0]['code'] += source_files(folder)
+    stages[0]['code'] = code + source_files(a.sam3 / 'sam3')
     stages += [stage('lifecycle', ['track'], dict(video=video, masks=ref('track', 'masks'),
                     review=post.fingerprint(a.lifecycle_review)), dict(lifecycle='lifecycle.json', gate='bbox_gate.json'))]
     # Pin only relevant bundle files, not reference meshes/images.
@@ -209,24 +200,14 @@ def stage(a):
             raise ValueError('Motion tracking requires 1280x720 source raster')
         if abs(fps - 30) > 1e-5:
             raise ValueError('GVHMR frontend requires a normalized 30 Hz source')
-        if p.get('tracker', 'samurai') == 'sam3':
-            cmd = [p['sam3_python'], str(Path(p['snapshot'])/'tools/gvhmr/sam3_tracking.py'),
-                   '--video', ins['video'], '--root', p['sam3'], '--checkpoint', ins['checkpoint'],
-                   '--actor-id', p['actor_id'], '--prompt-frame', str(p['prompt_frame']),
-                   '--box', *map(str, p['box']), '--out', str(a.out),
-                   '--source-video-sha256', p['source_video_sha256']]
-            subprocess.run(cmd, check=True)
-            return
-        mod = post.module(upstream / 'experiments/postopt_ab/run_samurai.py', 'full_samurai')
-        # Legacy external overrides may still have historical dependency lookups.
-        # Optional dependency paths come from the explicit runtime configuration.
-        mod.ROOT = Path(p['snapshot'])
-        mod.SAMURAI = Path(p['samurai']); mod.CKPT = Path(ins['checkpoint'])
-        sys.path[:0] = p['samurai_deps']
-        sys.argv = ['run_samurai', '--video', ins['video'], '--raw-tracking', ins['video'],
-                    '--box', ','.join(map(str, p['box'])), '--prompt-frame', str(p['prompt_frame']),
-                    '--actor-id', p['actor_id'], '--out', str(a.out)]
-        mod.main()
+        if p.get('tracker') != 'sam3':
+            raise ValueError('Tracking stage requires explicit SAM3 provenance')
+        cmd = [p['sam3_python'], str(Path(p['snapshot'])/'tools/gvhmr/sam3_tracking.py'),
+               '--video', ins['video'], '--root', p['sam3'], '--checkpoint', ins['checkpoint'],
+               '--actor-id', p['actor_id'], '--prompt-frame', str(p['prompt_frame']),
+               '--box', *map(str, p['box']), '--out', str(a.out),
+               '--source-video-sha256', p['source_video_sha256']]
+        subprocess.run(cmd, check=True)
     elif a.kind == 'lifecycle':
         import numpy as np
         from tools.gvhmr.tracking_evidence import video_timeline, file_sha256
@@ -247,7 +228,7 @@ def stage(a):
                         rejected_frames=np.flatnonzero(~keep).tolist(),
                         scope='Scale and mask-fill trailing-max gate; unsupported crops do not establish physical exit'))
     elif a.kind == 'bodies':
-        cmd = [sys.executable, '-m', 'tools.gvhmr.samurai_reconstruct', '--video', ins['video'],
+        cmd = [sys.executable, '-m', 'tools.gvhmr.person_reconstruct', '--video', ins['video'],
                '--actor-id', p['actor_id'], '--person-masks', ins['masks'], '--track-lifecycle', ins['lifecycle'],
                '--pi3x-bundle', p['pi3x_bundle'], '--repo', p['gvhmr_repo'],
                '--gpu', str(p['gpu']), '--output', str(a.out / 'gvhmr')]
@@ -259,10 +240,10 @@ def stage(a):
                 cmd += ['--' + key.replace('_', '-'), p[key]]
             cmd += ['--pmpose-checkpoint', ins['pose_model']]
         from tools.gvhmr.world_tracking import install_policy
-        from tools.gvhmr import samurai_reconstruct
-        sys.argv = ['samurai_reconstruct', *cmd[3:]]
+        from tools.gvhmr import person_reconstruct
+        sys.argv = ['person_reconstruct', *cmd[3:]]
         with install_policy():
-            samurai_reconstruct.main()
+            person_reconstruct.main()
         post.write_json(a.out / 'native_marker.json', dict(fresh_inference=True, path='gvhmr/motion_native.npz'))
     elif a.kind == 'complete':
         # The worker creates its own output root. Keep stage runtime evidence
@@ -381,13 +362,9 @@ def main():
     for name in ('video', 'pi3x-bundle', 'lifecycle-review',
                  'gvhmr-repo', 'pi3', 'pi3-checkpoint', 'smplx-model', 'python', 'out'):
         p.add_argument('--' + name, type=Path, required=True)
-    p.add_argument('--tracker', choices=('sam3', 'samurai'), default='sam3')
-    p.add_argument('--samurai', type=Path)
-    p.add_argument('--samurai-checkpoint', type=Path)
     p.add_argument('--sam3', type=Path, default=Path(os.environ.get('SAM3_ROOT', ROOT/'external/sam3')))
     p.add_argument('--sam3-python', type=Path, default=Path(os.environ.get('SAM3_PYTHON', ROOT/'.runtime/sam3-segmentation/venv/bin/python')))
     p.add_argument('--sam3-checkpoint', type=Path, default=Path(os.environ.get('SAM3_CHECKPOINT', ROOT/'.runtime/sam3-segmentation/checkpoints/sam3.pt')))
-    p.add_argument('--samurai-deps', type=Path, nargs='*', default=[])
     p.add_argument('--actor-id', required=True)
     p.add_argument('--box', type=float, nargs=4, required=True)
     p.add_argument('--prompt-frame', type=int, default=0)

@@ -9,8 +9,7 @@ source-video human reconstruction. Room authoring still uses [Blender](blender.m
 with [Pi3X](pi3x.md) references. Kimodo is for new/changed actions or fallback.
 
 For default SAM3 tracking, PMPose, dense Pi3X and packaged v2 helpers, continue
-with [full human-motion installation](human-motion.md). SAMURAI is an explicit
-alternative tracker.
+with [full human-motion installation](human-motion.md).
 
 ## Runtime boundary
 

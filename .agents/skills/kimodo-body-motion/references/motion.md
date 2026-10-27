@@ -2,6 +2,10 @@
 
 Use scene recipes through `bash tools/indoor`; see project-root `docs/PIPELINE.md`
 for the shared stages and `kimodo_blender/RUNTIME.md` for model provenance.
+Use the configured GPU runtime for inference/skinning. Capacity was validated on
+96 GB; consult the runtime's 24 GB options when needed rather than inferring capacity.
+The human branch is body-only SMPL-X without facial expression animation; G1 uses
+its native checkpoint, skeleton and rigid-link meshes.
 
 ## Motion configuration
 
@@ -28,6 +32,20 @@ Use `body.mode: native` with a native Kimodo NPZ to resample an existing motion,
 New motion is quaternion-resampled before skinning, preserving all 300 shape
 coefficients and the deployed SMPL-X asset's pose corrections. The skin stage also
 saves an editable rig `.blend`. Optional smoothing must be explicit in the recipe.
+
+### Duration and native calls
+
+The deployed model supports at most **10 seconds per prompt** (300 native frames
+at 30 fps). Longer clips use multiple native segments. Direct Python calls take
+complete prompt strings and matching integer frame counts; the recipe wrapper
+requires one duration per period-separated prompt and validates the limit before
+generation. Check the actual converted calls when using another wrapper.
+
+Choose splits by action changes and observed drift/joins, without a universal
+five-second rule. Hand/foot keys can also encode root height and heading; reconcile
+them with the route. Inspect segment boundaries in the mesh and source-camera view.
+See [call validation](call-and-validation.md) for native frames, implicit constraints
+and continuation handling.
 
 ## Placement and appearance
 
@@ -74,6 +92,31 @@ source `.blend` path is retained in recipe metadata but need not exist and is no
 copied. Status remains `staged`; it does not certify room contact or video delivery.
 Resume preserves this scope. Use compatible caches in a later scene run.
 
+```bash
+bash tools/indoor plan "$SCENE_ID" --recipe "$PERSON_RECIPE" --motion-only
+bash tools/indoor run "$SCENE_ID" --recipe "$PERSON_RECIPE" --motion-only
+```
+
+For uncertain travel or sustained support, inspect native output before skinning:
+
+```bash
+bash tools/indoor prepare "$SCENE_ID" --recipe "$PERSON_RECIPE" --motion-only --run-id "$MOTION_ID"
+bash tools/indoor execute "$MOTION_RUN" --until motion
+"$KIMODO_ENV/bin/python" -m aha3d.motion.diagnostics \
+  --motion "$MOTION_RUN/stages/motion/motion.npz" \
+  --recipe "$MOTION_RUN/snapshot/recipe.json" --out "$NATIVE_DIAGNOSTICS"
+bash tools/indoor execute "$MOTION_RUN" --until skin
+```
+
+`MOTION_RUN` is `runs/$SCENE_ID/$MOTION_ID`; claim it and the diagnostic output.
+For `native` mode inspect the supplied file directly; there is no generation stage.
+Diagnostics report Y-up root travel, displacement, height, steps and segment joins.
+Optional `--max-travel-m`, `--max-root-step-m`, `--min-root-height-m` and
+`--max-height-range-m` are action-specific limits (violations write evidence and
+exit 2). Native FPS follows recipe `source_fps` or defaults to 30, with an override.
+Review diagnostics before the skin command; support/facing still need mesh review.
+`submit` can resume prepared motion-only runs; `batch` does not expose this flag.
+
 The [ensemble workflow](../../../../docs/SCENE_WORKFLOW.md#parameterized-room-and-multi-person-assembly)
 provides stable per-person IDs, independent caches, explicit uniform stature scale,
 constant placement and optional flat-floor grounding. It verifies all people in
@@ -85,6 +128,22 @@ approach, pause and departure. When an essential turn needs native heading contr
 inspect the installed constraint schema rather than adding hand/full-body keys
 solely for facing. Changes to an intended route require task-specific judgment;
 collision diagnostics are not an automatic motion-correction instruction.
+
+## Mesh previews and contact experiments
+
+`python -m aha3d.motion.preview --motion ... --out ...` defaults to actual human
+mesh, resampling rotations before skinning and following pelvis XY for display
+while preserving heading/vertical motion. Use `--baseline` for comparison;
+`--representation skeleton` is an explicit diagnostic option. Claim the video and
+its sibling assets directory. A room-free preview does not establish furniture contact.
+Final scene playback uses baked shape keys; keep the separate rig when skeletal
+editing is useful. Regenerate synthetic tracks after pose, placement or camera edits.
+
+For authorized generated contact edits, `tools/kimodo/contact_edit.py` accepts native
+joint targets, mandatory text, optional warm-start motion and a hashed clean-prediction
+callback. Inspect decoded mesh contact, visible-part preservation and transitions;
+conditioning alone does not guarantee exact contact. Source-contact repair stays under
+the current [motion policy](../../../../docs/MOTION_CONTROLS.md).
 
 ## Experimental source-assisted legs
 

@@ -1,6 +1,6 @@
 # Experimental source-guided trajectory proposals
 
-For the current SAMURAI/Pi3X workflow with trajectory scale, vertical placement,
+For the current SAM3/Pi3X workflow with trajectory scale, vertical placement,
 smooth root correction, track termination and requested contact constraints,
 use [Human tracking and trajectory](HUMAN_TRACKING_AND_TRAJECTORY.md).
 The SAM image-landmark optimizer documented below is a separate historical

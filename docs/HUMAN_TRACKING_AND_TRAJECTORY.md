@@ -19,7 +19,7 @@ provenance; do not fabricate reviews to satisfy a legacy schema.
 
 ## Existing debug workflow and interfaces
 
-Use this guide for source-person reconstruction with SAMURAI and GVHMR in an
+Use this guide for source-person reconstruction with SAM3 and GVHMR in an
 authored room. The user requested the lifecycle and correction capabilities below
 on 2026-09-13. Room geometry continues through Pi3X references and Blender asset
 authoring. This guide does not turn raw Pi3X meshes into the delivered room.
@@ -31,15 +31,15 @@ artifacts.
 
 ## 1. Select an actor and establish its track lifetime
 
-Review the source before initializing `third_party/samurai`. Choose the actual
+Review the source before initializing SAM3. Choose the actual
 requested person, including when initially distant or partially hidden. Save the
 original masks, actor ID, initialization frame/box and full-video SHA256. Reviewed
 mask suppression is a separate derivative with reasons; never overwrite raw masks.
 
-Replace the default GVHMR tracking input before fresh ViTPose, image features and
-motion inference. `tools/gvhmr/samurai_tracking.py` uses the pinned upstream crop
+Supply SAM3 masks before fresh PMPose (or explicitly selected ViTPose), image
+features and motion inference. `tools/gvhmr/person_tracking.py` uses the pinned upstream crop
 conversion and separates observed mask support from interpolated crops.
-`tools/gvhmr/samurai_reconstruct.py` records actual inputs, preprocessing hashes
+`tools/gvhmr/person_reconstruct.py` records actual inputs, preprocessing hashes
 and extraction counters. A mask overlay on an existing motion cache is not a rerun.
 
 Use three distinct concepts:
@@ -70,30 +70,28 @@ retain the original video and normalization mapping. From the repository root,
 using the dedicated GVHMR Python and configured GPU:
 
 ```bash
-python -m tools.gvhmr.samurai_reconstruct \
+python -m tools.gvhmr.person_reconstruct \
   --video /absolute/normalized_source.mp4 --actor-id reviewed_actor \
-  --samurai-masks /absolute/masks.npz \
+  --person-masks /absolute/masks.npz \
   --track-lifecycle /absolute/lifecycle_review.json \
-  --pi3x-bundle /absolute/same_shot_camera_bundle --gpu 3 \
+  --pi3x-bundle /absolute/same_shot_camera_bundle --gpu 0 \
   --output /absolute/new_gvhmr_run
 ```
 
-Select the GPU for the actual machine (normally 0); 3 was the original experiment
-device, not a portable rule. The lifecycle JSON requires `schema_version:1`,
+Select the GPU for the actual machine. The lifecycle JSON requires `schema_version:1`,
 `source_video_sha256`, `actor_id`, exact full `time_seconds`, `image_size:[W,H]`,
 `terminal_exit_frame` (integer first absent frame, or null), `reviewer`, `reason`
 and supporting `evidence_frames` before/after an exit. Review is performed by the
 agent from source evidence; it does not require another user approval.
 
 `track_lifecycle.edge_exit_proposal(masks)` suggests an edge/terminal-absence
-candidate. After review, `propagate_active(predictor, state, track_active, ...)`
-bounds SAMURAI propagation before model evaluation. Masks NPZ must contain
-`masks:bool[T,H,W]`, `image_size:[W,H]`, exact `time_seconds`,
-`source_video_sha256` and `actor_id`.
+candidate. Source review determines the active inference prefix. Masks NPZ must
+contain `masks:bool[T,H,W]`, `image_size:[W,H]`, exact `time_seconds`,
+`source_video_sha256`, `actor_id` and explicit SAM3 tracker provenance.
 `prepare_gvhmr_boxes` retains full evidence but creates model crops only for the
 active prefix. The launcher records the losslessly verified inference prefix,
 actual model inputs and full source/lifecycle mapping. For a matched control,
-replace `--samurai-masks` with `--baseline-track-id` for the same reviewed actor.
+replace `--person-masks` with `--baseline-track-id` for the same reviewed actor.
 
 ## 2. Establish one room basis and depth observation set
 

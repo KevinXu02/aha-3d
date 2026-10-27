@@ -14,7 +14,7 @@ Python packages. Keep the checkout intact.
 | **3. Robotics motion generation** | Static plus Kimodo, the native G1 checkpoint, text models and G1 mesh dependencies | Native robot motion generation in an editable room. GVHMR/PMPose are needed only when source-person reconstruction is also requested. [Kimodo](install/kimodo.md) |
 
 SAM 3D Body and DINOv3 are optional sparse video-pose guidance for Kimodo, not
-part of any level by default. SAMURAI is an explicit alternative tracker. The
+part of any level by default. The
 [full video-to-scene route](REAL2SIM_PIPELINE.md) describes stage order and
 validation. GVHMR keeps a separate environment because its validated PyAV pin
 conflicts with Kimodo's shared core.

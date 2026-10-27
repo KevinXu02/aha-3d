@@ -26,10 +26,11 @@ class SAM3TrackingTests(unittest.TestCase):
         self.assertEqual(tracking_orders(0,3),[[0,1,2]])
         with self.assertRaises(ValueError):tracking_orders(5,5)
 
-    def test_legacy_and_explicit_provenance(self):
-        self.assertEqual(tracker_name({}),'SAMURAI')
+    def test_requires_explicit_sam3_provenance(self):
         self.assertEqual(tracker_name({'tracker':np.array('SAM3')}),'SAM3')
-        with self.assertRaises(ValueError):tracker_name({'tracker':'YOLO'})
+        for archive in ({}, {'tracker':'SAMURAI'}, {'tracker':'YOLO'}):
+            with self.subTest(archive=archive), self.assertRaises(ValueError):
+                tracker_name(archive)
 
     def test_sam3_stage_dispatches_separate_runtime(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -49,7 +50,7 @@ class SAM3TrackingTests(unittest.TestCase):
 
     def test_bodies_keep_original_bbox_policy_and_pmpose(self):
         import tools.gvhmr.world_tracking as policy
-        import tools.gvhmr.samurai_reconstruct as reconstruct
+        import tools.gvhmr.person_reconstruct as reconstruct
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);params=root/'params.json'
             params.write_text(json.dumps(dict(snapshot=str(ROOT),upstream=temp,tracker='sam3',
@@ -62,11 +63,28 @@ class SAM3TrackingTests(unittest.TestCase):
                 self.assertIn('--person-masks',sys.argv)
                 self.assertEqual(sys.argv[sys.argv.index('--pose-detector')+1],'pmpose')
 
-    def test_legacy_mask_cli_alias(self):
-        from tools.gvhmr.samurai_reconstruct import parser
+    def test_person_masks_cli_rejects_removed_alias(self):
+        from tools.gvhmr.person_reconstruct import parser
         base=['--video','v','--output','o','--actor-id','a','--pi3x-bundle','b']
-        self.assertEqual(parser().parse_args(base+['--person-masks','m']).samurai_masks,Path('m'))
-        self.assertEqual(parser().parse_args(base+['--samurai-masks','m']).samurai_masks,Path('m'))
+        self.assertEqual(parser().parse_args(base+['--person-masks','m']).person_masks,Path('m'))
+        with self.assertRaises(SystemExit), patch('sys.stderr'):
+            parser().parse_args(base+['--samurai-masks','m'])
+
+    def test_tracking_stage_rejects_legacy_or_missing_provenance(self):
+        import cv2
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            for name, tracker in [('legacy','samurai'), ('missing',None)]:
+                params=root/(name+'.json')
+                data=dict(snapshot=str(ROOT),upstream=temp)
+                if tracker is not None:
+                    data['tracker']=tracker
+                params.write_text(json.dumps(data))
+                with patch.object(cv2,'VideoCapture') as capture, patch.object(pipeline.subprocess,'run') as run:
+                    capture.return_value.get.side_effect=[1280,720,30]
+                    with self.assertRaisesRegex(ValueError,'explicit SAM3'):
+                        pipeline.stage(argparse.Namespace(params=params,input=['video=source.mp4'],out=root/name,kind='track'))
+                    run.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()

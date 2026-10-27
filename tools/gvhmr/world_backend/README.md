@@ -9,7 +9,6 @@ no new code license is assigned.
 
 | Source-relative file | Purpose |
 | --- | --- |
-| `experiments/postopt_ab/run_samurai.py` | Reviewed-actor SAMURAI masks |
 | `experiments/postopt_ab/run_pi3x_dense.py` | Dense same-shot Pi3X camera track |
 | `experiments/postopt_ab/build_results.py` | GVHMR/camera data adaptation |
 | `experiments/postopt_ab/build_gvhmr_global.py` | Native global-motion comparator |

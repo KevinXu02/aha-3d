@@ -23,7 +23,7 @@ class PMPoseTests(unittest.TestCase):
     def test_requires_mask_without_silent_fallback(self):
         with patch.object(pmpose.subprocess, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'requires source-person masks'):
-                pmpose.extract(argparse.Namespace(samurai_masks=None), None, None, None, 3)
+                pmpose.extract(argparse.Namespace(person_masks=None), None, None, None, 3)
             run.assert_not_called()
 
     def test_active_prefix_keeps_real_masks_and_zeroes_empty_frames(self):
@@ -65,7 +65,7 @@ class PMPoseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); python = root/'python'; python.symlink_to('/usr/bin/python3')
             output = root/'kp.pt'; Path(str(output)+'.json').write_text('{"detector":"pmpose"}')
-            a = argparse.Namespace(samurai_masks=root/'masks.npz', pmpose_python=python,
+            a = argparse.Namespace(person_masks=root/'masks.npz', pmpose_python=python,
                 pmpose_root=root, pmpose_checkpoint=root/'model.pth', pmpose_variant='PMPose-h', pmpose_ld_preload='')
             with patch.object(pmpose.subprocess, 'run') as run:
                 pmpose.extract(a, root/'source.mp4', root/'bbx.pt', output, 3)

@@ -4,11 +4,13 @@ import copy
 import json
 import tempfile
 import importlib.util
+import os
 import unittest
 import numpy as np
-from tools.gvhmr.samurai_tracking import mask_boxes,validate_archive,forbid_default_tracker,dense_upstream_boxes,upstream_helpers
+from tools.gvhmr.person_tracking import mask_boxes,validate_archive,forbid_default_tracker,dense_upstream_boxes,upstream_helpers
 
-PINNED_RUNTIME_AVAILABLE = ((Path(__file__).resolve().parents[1]/'.runtime/gvhmr-bedlam2/hmr4d').is_dir()
+PINNED_REPO = Path(os.environ.get('GVHMR_ROOT', Path(__file__).resolve().parents[1]/'.runtime/gvhmr-bedlam2'))
+PINNED_RUNTIME_AVAILABLE = ((PINNED_REPO/'hmr4d').is_dir()
     and all(importlib.util.find_spec(name) is not None for name in
             ('torch','av','einops','scipy','colorlog','pytorch_lightning','pytorch3d')))
 PINNED_RUNTIME_REASON = 'Integration needs pinned checkout and dedicated GVHMR runtime dependencies; do not install these into shared core'
@@ -16,7 +18,7 @@ PINNED_RUNTIME_REASON = 'Integration needs pinned checkout and dedicated GVHMR r
 class MaskEvidenceTests(unittest.TestCase):
     def setUp(self):
         self.times=np.arange(7)/30;self.mask=np.zeros((7,12,16),bool);self.mask[2,2:8,3:7]=True;self.mask[4,4:12,8:16]=True
-        self.data=dict(masks=self.mask,time_seconds=self.times,image_size=np.array([16,12]),source_video_sha256=np.array('a'*64),actor_id=np.array('reviewed_actor'))
+        self.data=dict(masks=self.mask,time_seconds=self.times,image_size=np.array([16,12]),source_video_sha256=np.array('a'*64),actor_id=np.array('reviewed_actor'),tracker=np.array('SAM3'))
     def validate(self,data):return validate_archive(data,self.times,[16,12],'a'*64,'reviewed_actor')
     def test_raw_mask_extent_and_empty_support(self):
         box,valid,area=self.validate(self.data);np.testing.assert_array_equal(box[2],[3,2,7,8]);np.testing.assert_array_equal(box[4],[8,4,16,12]);self.assertTrue(np.isnan(box[0]).all());self.assertEqual(valid.sum(),2);self.assertEqual(area[2],24)
@@ -42,7 +44,7 @@ class MaskEvidenceTests(unittest.TestCase):
         self.assertIs(Tracker.__init__,original);self.assertTrue(Tracker().called)
     @unittest.skipUnless(PINNED_RUNTIME_AVAILABLE,PINNED_RUNTIME_REASON)
     def test_actual_pinned_gap_smoothing_and_crop_math(self):
-        repo=Path(__file__).resolve().parents[1]/'.runtime/gvhmr-bedlam2';boxes,valid,_=self.validate(self.data)
+        repo=PINNED_REPO;boxes,valid,_=self.validate(self.data)
         dense,xys,filled=dense_upstream_boxes(boxes,valid,upstream_helpers(repo))
         expected=np.array([[3,2,7,8],[3,2,7,8],[3,2,7,8],[5.5,3,11.5,10],[8,4,16,12],[8,4,16,12],[8,4,16,12]],np.float32)
         np.testing.assert_array_equal(filled.numpy(),expected)
@@ -56,9 +58,9 @@ class MaskEvidenceTests(unittest.TestCase):
     def test_fresh_video_injection_binds_exporter_support_and_refuses_overwrite(self):
         import av,torch
         from fractions import Fraction
-        from tools.gvhmr.samurai_tracking import prepare_gvhmr_boxes
+        from tools.gvhmr.person_tracking import prepare_gvhmr_boxes
         from tools.gvhmr.tracking_evidence import file_sha256,video_timeline,validated_detected
-        repo=Path(__file__).resolve().parents[1]/'.runtime/gvhmr-bedlam2'
+        repo=PINNED_REPO
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);video=root/'source.mp4';archive=root/'masks.npz'
             with av.open(str(video),'w') as out:
@@ -75,7 +77,7 @@ class MaskEvidenceTests(unittest.TestCase):
             support=validated_detected(sidecar,timeline['time_seconds'],timeline['image_size'],digest,dense)
             np.testing.assert_array_equal(support,[False,False,True,False,True,False,False])
             self.assertEqual(result['injected_bbx_file_sha256'],file_sha256(root/'injected/bbx.pt'))
-            self.assertFalse(result['default_tracker_invoked']);self.assertEqual(sidecar['tracker'],'SAMURAI')
+            self.assertFalse(result['default_tracker_invoked']);self.assertEqual(sidecar['tracker'],'SAM3')
             with self.assertRaises(FileExistsError):prepare_gvhmr_boxes(archive,video,'reviewed_actor',repo,root/'injected')
 
 if __name__=='__main__':unittest.main()

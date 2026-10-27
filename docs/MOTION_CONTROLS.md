@@ -69,7 +69,7 @@ subsequent contact translation. Preserve timing and resample rotations before
 skinning. Synthetic in-frame flags do not establish source visibility.
 
 The configured frontend supplies reviewed actor tracking before GVHMR inference.
-Use the current pipeline routing for SAM3 versus the legacy SAMURAI route. Confirmed
+Use the current SAM3 pipeline routing. Confirmed
 exit ends/hides the track; temporary occlusion does not. Keep native body dimensions
 and local articulation. Pi3X remains reference geometry; keep the editable Blender
 room workflow. Kimodo is for new/changed actions or documented generated fallback.

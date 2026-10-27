@@ -60,7 +60,7 @@ class MotionPackageTests(unittest.TestCase):
                 coordinate_frame='pi3x-aligned-world', scale=1, accepted=True,
                 evidence='test-only prior', plane=[0, 0, 1, 0], upright=[0, 0, 1])))
             full = root / 'full'
-            self.command(ROOT / 'tools/gvhmr/world_pipeline.py', 'prepare',
+            prepare_args = [ROOT / 'tools/gvhmr/world_pipeline.py', 'prepare',
                          '--video', fixture, '--pi3x-bundle', bundle,
                          '--lifecycle-review', fixture, '--sam3', sam3,
                          '--sam3-python', sys.executable, '--sam3-checkpoint', fixture,
@@ -69,14 +69,23 @@ class MotionPackageTests(unittest.TestCase):
                          '--smplx-model', fixture, '--python', sys.executable,
                          '--pmpose-root', root, '--pmpose-checkpoint', fixture,
                          '--out', full, '--actor-id', 'actor', '--gpu', 0,
-                         '--box', 1, 2, 3, 4, '--scene-ground', prior)
+                         '--box', 1, 2, 3, 4, '--scene-ground', prior]
+            self.command(*prepare_args)
             graph = json.loads((full / 'experiment.json').read_text())
             self.assertEqual([s['id'] for s in graph['stages']],
                              ['track', 'lifecycle', 'bodies', 'camera', 'adapt', 'v2', 'measure', 'review'])
             provenance = json.loads((full / 'upstream_provenance.json').read_text())
             self.assertTrue(all(Path(p['path']).is_relative_to(ROOT / 'tools/gvhmr/world_backend')
                                 for p in provenance.values()))
-            self.assertNotIn('runs/', (full / 'upstream/experiments/postopt_ab/run_samurai.py').read_text())
+            self.assertTrue((full / 'snapshot/tools/gvhmr/person_reconstruct.py').is_file())
+            self.assertTrue((full / 'snapshot/tools/gvhmr/person_tracking.py').is_file())
+            self.assertFalse((full / 'upstream/experiments/postopt_ab/run_samurai.py').exists())
+            self.assertFalse((full / 'snapshot/tools/gvhmr/samurai_reconstruct.py').exists())
+            for removed in ('--tracker', '--samurai', '--samurai-checkpoint', '--samurai-deps'):
+                result = subprocess.run([sys.executable, *map(str, prepare_args), removed, 'samurai'],
+                                        capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('unrecognized arguments: '+removed, result.stderr)
 
     @unittest.skipUnless(importlib.util.find_spec('pytorch3d'), 'requires the GVHMR runtime')
     def test_backend_snapshot_imports_without_neighboring_checkout(self):

@@ -50,7 +50,7 @@ def edge_exit_proposal(masks, *, min_absent_frames=5, edge_margin_px=2):
     An occluder at an image boundary can produce the same evidence. A source
     review must confirm exit before this proposal may drive track_active.
     """
-    from .samurai_tracking import mask_boxes
+    from .person_tracking import mask_boxes
     boxes, present, _ = mask_boxes(masks)
     if type(min_absent_frames) is not int or min_absent_frames < 2 or edge_margin_px < 0:
         raise ValueError('Invalid exit proposal evidence bounds')
@@ -64,23 +64,6 @@ def edge_exit_proposal(masks, *, min_absent_frames=5, edge_margin_px=2):
     return dict(candidate=candidate, requires_review=True, last_mask_frame=last, edge_contact=edge,
         absent_suffix_frames=len(present)-first_absent,
         reason='Edge mask followed by terminal absence; cannot distinguish boundary occlusion from exit automatically.')
-
-
-def propagate_active(predictor, state, active, *, start_frame_idx=0, reverse=False, **kwargs):
-    """Bound SAM2/SAMURAI propagation before model evaluation after terminal exit."""
-    active=track_active_mask(active, len(active)); end=int(active.sum())
-    if state is not None and state.get('num_frames') != len(active):
-        raise ValueError('SAMURAI state and activity frame mapping differ')
-    if not 0 <= start_frame_idx < end:
-        raise ValueError('SAMURAI initialization is not inside the active track')
-    if 'max_frame_num_to_track' in kwargs:
-        raise ValueError('Lifecycle owns the propagation bound')
-    distance=start_frame_idx if reverse else end-1-start_frame_idx
-    for row in predictor.propagate_in_video(state, start_frame_idx=start_frame_idx,
-            max_frame_num_to_track=distance, reverse=reverse, **kwargs):
-        if not 0 <= int(row[0]) < end:
-            raise RuntimeError('SAMURAI returned a frame outside the active prefix')
-        yield row
 
 
 def pad_inactive(array, active, *, fill='last'):

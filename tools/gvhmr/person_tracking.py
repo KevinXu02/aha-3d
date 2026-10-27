@@ -201,7 +201,7 @@ def prepare_gvhmr_boxes(mask_archive, expected_video, actor_id, repo, output_dir
     """Create fresh bbx.pt and raw_tracking.json; caller owns a fresh run."""
     import torch
     output = Path(output_dir).resolve()
-    targets = [output/'bbx.pt', output/'raw_tracking.json', output/'samurai_boxes.npz', output/'samurai_boxes.json']
+    targets = [output/'bbx.pt', output/'raw_tracking.json', output/'person_boxes.npz', output/'person_boxes.json']
     if any(p.exists() for p in targets):
         raise FileExistsError('Source-person injected box outputs must be fresh')
     video, archive = Path(expected_video).resolve(strict=True), Path(mask_archive).resolve(strict=True)
