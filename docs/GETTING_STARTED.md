@@ -4,7 +4,7 @@ Open this repository in your coding agent and describe the result you want.
 The agent handles setup, reconstruction, visual checks and delivery. This guide
 uses the included office video as an example of that workflow.
 
-[![](media/office48_source.jpg)](../references/office48/source.mp4)
+[![Office whitebox reconstruction](media/office48_whitebox.jpg)](media/office48_whitebox.mp4)
 
 ## 1. Explore the supplied result
 
