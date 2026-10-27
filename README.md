@@ -11,7 +11,11 @@ contacts. Saved scenes can be rendered or exported as interactive browser demos.
 Start by giving your coding agent a reconstruction request. It handles setup,
 geometry estimation, scene authoring, review and delivery.
 
-[![Watch the office reconstruction video](docs/media/office48_whitebox.jpg)](docs/media/office48_whitebox.mp4)
+| Original video | Astra without the harness | Astra with the harness |
+| --- | --- | --- |
+| [![Original video](https://kevinxu02.github.io/real2sim-indoor-site/media/motivation-office48/source.jpg)](https://kevinxu02.github.io/real2sim-indoor-site/#kitchen-refinement) | [![Astra without the harness](https://kevinxu02.github.io/real2sim-indoor-site/media/motivation-office48/before.jpg)](https://kevinxu02.github.io/real2sim-indoor-site/#kitchen-refinement) | [![Astra with the harness](https://kevinxu02.github.io/real2sim-indoor-site/media/motivation-office48/after.jpg)](https://kevinxu02.github.io/real2sim-indoor-site/#kitchen-refinement) |
+
+[Play the synchronized video comparison](https://kevinxu02.github.io/real2sim-indoor-site/#kitchen-refinement).
 
 ## News
 
