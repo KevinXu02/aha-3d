@@ -19,7 +19,7 @@ geometry estimation, scene authoring, review and delivery.
 
 ## News
 
-- **2026-10-27** — Added an [office reconstruction walkthrough](docs/GETTING_STARTED.md), with a bundled source video, agent prompts and Gallery/X-ray refinement. Motion review interfaces now use English.
+- **2026-10-27** — Added an [office reconstruction walkthrough](https://github.com/KevinXu02/aha-3d/blob/main/docs/GETTING_STARTED.md), with a bundled source video, agent prompts and Gallery/X-ray refinement.
 
 ## Getting started
 
