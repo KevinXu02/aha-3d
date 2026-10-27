@@ -11,6 +11,12 @@ contacts. Saved scenes can be rendered or exported as interactive browser demos.
 Start by giving your coding agent a reconstruction request. It handles setup,
 geometry estimation, scene authoring, review and delivery.
 
+[![Watch the office reconstruction video](docs/media/office48_whitebox.jpg)](docs/media/office48_whitebox.mp4)
+
+## News
+
+- **2026-10-27** — Added an [office reconstruction walkthrough](docs/GETTING_STARTED.md), with a bundled source video, agent prompts and Gallery/X-ray refinement. Motion review interfaces now use English.
+
 ## Getting started
 
 Follow [Getting started](docs/GETTING_STARTED.md) to explore the office example
