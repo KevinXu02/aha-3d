@@ -102,7 +102,9 @@ def portal(run, stages='stages', viewer='viewer/demo-fast.html', collision_path=
     baseline_constraints=generation.get('pass_constraints',{}).get('baseline',
         ['Root2DConstraintSet']+(['Hips'] if generation['plan'].get('root_height_keys') else []))
     historical_hips=any('Hips' in item for item in baseline_constraints)
-    baseline_description=('文本、二维路径、朝向'+('和历史版本的完整 Hips 约束（位置及旋转）' if historical_hips else '；没有显式骨盆高度约束')+'的第一轮输出。')
+    baseline_description=('First-pass output using text, a 2D route and heading'
+        + (' with historical full Hips constraints (position and rotation).' if historical_hips
+           else ', without explicit pelvis-height constraints.'))
     rotations=rotation_report(run/stages,run/'rotation-report.json')
     motion=np.load(run/stages/'refined.npz');head=motion['posed_joints'][:,15]@np.array([[-1.,0,0],[0,0,1],[0,1,0]]).T
     hand=motion['posed_joints'][:,21]@np.array([[-1.,0,0],[0,0,1],[0,1,0]]).T
@@ -113,23 +115,23 @@ def portal(run, stages='stages', viewer='viewer/demo-fast.html', collision_path=
         receipt=json.loads(receipt_path.read_text())['conditioned']
         heights=generation.get('pelvis_height_frames',[])
         native_hand='RightHandConstraintSet' in generation.get('constraints',[])
-        hand_note=('原生手部条件在接触帧携带第一轮姿态拟合得到的 root 高度和朝向；行走阶段无高度目标。' if native_hand else '手部条件仅含手的位置和旋转；行走阶段无高度目标。')
+        hand_note=('Native hand conditioning includes root height and heading fitted from first-pass poses at contact frames; walking has no height targets.' if native_hand else 'Hand conditioning includes only hand position and rotation; walking has no height targets.')
         if not plan.get('hand_contact_seconds'):
-            hand_note='本次没有手部接触约束。'
+            hand_note='This run has no hand-contact constraints.'
         if historical_hips:
-            hand_note='历史对照保留全程稀疏 Hips 位置及旋转约束；第二轮在手部关键帧由原生手部上下文替代重复的 Hips 约束。'
+            hand_note='The historical control retains sparse Hips position and rotation constraints throughout the clip; in the second pass, native hand context replaces duplicate Hips constraints at hand keyframes.'
         height_times=', '.join(f'{f/30:.2f}s' for f in heights) or 'none'
         route_count=len(set(receipt.get('smooth_root_2d',{}).get('indices',[])))
         heading_count=len(set(receipt.get('global_root_heading',{}).get('indices',[])))
-        note=(f'<section><p>本次输入：{route_count} 个路径路点、{heading_count} 个朝向路点；'
-              f'{"历史 Hips 采样时刻" if historical_hips else "独立的坐下高度目标"}在 {height_times}。{hand_note}'
-              '段间仍使用前段生成动作的 12 帧上下文。</p>'
-              f'<a href="{stages}/constraint_receipt.json">查看实际约束帧及目标值</a></section>')
-        template=template.replace('<details><summary>完整过程和文件</summary>',note+'<details><summary>完整过程和文件</summary>')
+        note=(f'<section><p>Inputs: {route_count} route waypoints and {heading_count} heading waypoints; '
+              f'{"historical Hips sample times" if historical_hips else "independent seated-height targets"}: {height_times}. {hand_note} '
+              'Segments continue to use 12 frames of context from the preceding generated motion.</p>'
+              f'<a href="{stages}/constraint_receipt.json">View actual constraint frames and target values</a></section>')
+        template=template.replace('<details><summary>Full process and files</summary>',note+'<details><summary>Full process and files</summary>')
     if not (run/stages/'hand_constraints.npz').exists():
-        template=template.replace(f'<p><a href="{stages}/hand_constraints.npz">hand_constraints.npz</a>：第二轮的手部关键帧约束。</p>','')
+        template=template.replace(f'<p><a href="{stages}/hand_constraints.npz">hand_constraints.npz</a>: Second-pass hand keyframe constraints.</p>','')
     if not (run/'old-collision.json').exists():
-        template=template.replace(' · <a href="old-collision.json">旧结果碰撞检查</a>','')
+        template=template.replace(' · <a href="old-collision.json">Previous collision report</a>','')
     (run/'index.html').write_text(template.replace('/*BASELINE_DESCRIPTION*/',baseline_description).replace('/*REVIEW_DATA*/','window.REVIEW='+json.dumps(data).replace('<',r'\u003c')+';'))
 
 

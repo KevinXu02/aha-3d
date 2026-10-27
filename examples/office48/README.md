@@ -1,5 +1,8 @@
 # Office demo scene
 
+Use the [Getting Started walkthrough](../../docs/GETTING_STARTED.md) to reconstruct
+this office from the included video through final scene delivery.
+
 ![Whitebox render of the office reconstruction](../../docs/media/office48_whitebox.jpg)
 
 A home office with a vaulted, beamed ceiling, reconstructed by the agentic workflow
@@ -15,7 +18,11 @@ recovered from the video:
 - The source camera animated over frames 1–303 at 30 fps, 1280×720.
 - One neutral material; the file is self-contained.
 
-## Open and render
+## Inspect, edit and render
+
+Ask the agent to [show this example in the Gallery](../../docs/GETTING_STARTED.md#1-explore-the-supplied-result).
+You can also view the [supplied render](../../docs/media/office48_whitebox.mp4)
+directly. Open Blender when you want to edit the scene:
 
 ```bash
 blender examples/office48/whitebox.blend

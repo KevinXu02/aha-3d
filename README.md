@@ -1,136 +1,186 @@
 # AHa-3D: Agentic Tool Use for Real2Sim with GPT-6 Astra
 
-**[Project page](https://kevinxu02.github.io/real2sim-indoor-site/)**
+**[Project page](https://kevinxu02.github.io/real2sim-indoor-site/)** ·
+[Getting started](docs/GETTING_STARTED.md) · [Documentation index](docs/INDEX.md)
 
-AHa-3D turns an ordinary indoor video into an editable 3D scene in Blender. It
-rebuilds the room from reference geometry and a library of reusable furniture and
-materials, estimates the motion of the people in the video, places them in the
-shared room with foot-ground and object contact refinement, and renders the result
-with the original camera and timing. It can also generate new actions for people
-in the scene and export saved scenes as interactive browser demos.
+AHa-3D reconstructs indoor videos as editable Blender scenes, with room geometry,
+furniture, recovered cameras and optional people. Models estimate geometry and
+motion; a coding agent authors the room, reviews intermediate results and refines
+contacts. Saved scenes can be rendered or exported as interactive browser demos.
 
-## Demo
+Start by giving your coding agent a reconstruction request. It handles setup,
+geometry estimation, scene authoring, review and delivery.
 
-[![Whitebox render of a reconstructed office](docs/media/office48_whitebox.jpg)](https://kevinxu02.github.io/real2sim-indoor-site/)
+## Getting started
 
-An office rebuilt from a 10-second video and rendered through the recovered source
-camera ([MP4](https://raw.githubusercontent.com/KevinXu02/aha-3d/main/docs/media/office48_whitebox.mp4)).
-Open the editable scene in [examples/office48](examples/office48/README.md) with Blender 5.2. The [project page](https://kevinxu02.github.io/real2sim-indoor-site/)
-shows it next to the source video and hosts an interactive scene.
+Follow [Getting started](docs/GETTING_STARTED.md) to explore the office example
+in the Gallery, ask the agent to reconstruct it, and request changes. It provides
+copyable prompts; the agent runs the workflow.
 
-## Quick start
+<details>
+<summary>Technical reference: setup, commands and troubleshooting for agents and developers</summary>
 
-**Requirements:** one Linux workstation (Ubuntu or WSL2) with an NVIDIA GPU,
-Python 3.11 and compatible Blender for scene assembly. Human skinning also
-needs Blender 4.5 and its body extension. See the [runtime policy](MACHINE.md)
-and [three installation levels](docs/INSTALLATION.md) for details.
+## Setup
 
-1. **Clone and choose an installation level.** The installer asks whether to
-   prepare Static, Human reconstruction or Robotics motion generation before
-   it changes an environment.
+Run from the repository root on Linux (Ubuntu or WSL2), with Python 3.11,
+FFmpeg and an NVIDIA GPU/driver compatible with the installer’s CUDA 12.8 wheels.
+Use Blender 5.2 for the supplied scene libraries; human skinning additionally
+uses Blender 4.5 and its SMPL-X extension. See [prerequisites](docs/SETUP.md#1-prerequisites).
+A 24 GB GPU is the target; prior validation used 96 GB, so smaller-card coverage
+and runtime are not guaranteed. See [runtime limits](MACHINE.md).
 
-   ```bash
-   git clone https://github.com/KevinXu02/aha-3d.git && cd aha-3d
-   bash tools/setup.sh
-   ```
+Choose the installation route for your task:
 
-   For a noninteractive run, answer with `--level static`, `--level human` or
-   `--level robotics`; no level is chosen by default. `--plan` shows the
-   selected route without installing.
-
-2. **Finish the selected level's model and Blender setup.** Static needs
-   [Pi3X/SAM3 checkpoints and Blender](docs/PI3X_GEOMETRY_REFERENCE.md#runtime).
-   Level 2 also needs [PMPose, GVHMR and body skinning](docs/install/human-motion.md),
-   installed in their separate environments. Level 3 adds
-   [Kimodo, native G1 and text models](docs/install/kimodo.md) to Static.
-   The selector prepares Level 2's Static and SAM3 decoding code, then names
-   its remaining installation steps.
-
-3. **Check the selected route and start a scene.** For native G1 motion:
-
-   ```bash
-   python kimodo_blender/check_runtime.py --model g1
-   python -m unittest discover -s tests -v
-   ```
-
-   To reconstruct your own video, put it under `references/`, describe the
-   scene with `bash tools/indoor intake`, and follow the
-   [scene workflow](docs/SCENE_WORKFLOW.md). The [examples](examples/README.md)
-   cover generated motion after its model and runtime are configured.
-
-Browse the assets with `python tools/asset_index.py tree`. [Setup](docs/SETUP.md)
-covers a source-only install and troubleshooting.
-
-## Tools
-
-### Scene pipeline: `tools/indoor`
-
-A single command drives scene work from request to delivery. Runs are resumable,
-and each one gets its own directory under `runs/`.
-
-| Command | What it does |
-| --- | --- |
-| `intake` | Turn a scene request into a plan and list any missing decisions |
-| `scenes`, `plan` | List scenes; summarize a recipe's stages and runtime without running anything |
-| `preflight` | Check the recipe, inputs and optional segmentation bounds before a run |
-| `run`, `batch` | Run one recipe in the foreground, or queue several in a background worker |
-| `status` | Show run and worker progress |
-| `preview`, `review-layout`, `accept-preview` | Render a full-length preview and record reviews |
-| `check-placement` | Check saved-room geometry and object stability |
-| `acceptance`, `results` | Track completion criteria and register the selected deliveries |
-
-Run `bash tools/indoor --help` for all options, and see [pipeline](docs/PIPELINE.md).
-
-### Capabilities
-
-| Area | What you get | Guide |
+| Task | Installer level | Additional setup |
 | --- | --- | --- |
-| Room reconstruction | Reference geometry and cameras from the source video, turned into an editable Blender room | [Real2sim pipeline](docs/REAL2SIM_PIPELINE.md) |
-| People from video | Multi-person tracking, pose and body estimation, alignment into the shared room | [Human pipeline](docs/HUMAN_PIPELINE_GUIDE.md) |
-| Motion refinement | World-space optimization plus foot-ground and object contact refinement, with slip and collision checks | [Contact refinement](docs/CONTACT_REFINEMENT.md) |
-| Generated motion | New or changed actions for people in the scene, including object interaction | [Motion controls](docs/MOTION_CONTROLS.md) |
-| Asset library | Furniture, plants, articulated cabinets and procedural materials with search and orientation metadata | [Asset catalog](assets/INDEX.md) |
-| Scene variants | Swap furniture and materials in a saved scene while keeping IDs and orientation | [Scene variants](docs/SCENE_VARIANTS.md) |
-| Rendering and review | Previews, full renders, video decoding checks and review images | [Rendering](docs/RENDERING.md) |
-| Browser demos | Interactive web viewer with grabbable furniture, cabinet controls and baked animation | [Browser demo](.agents/skills/blender-browser-demo/SKILL.md) |
+| Room/reference geometry and cameras | `static` | [Pi3X weights](docs/install/pi3x.md#download-authorized-weights), [SAM3 weights/runtime](docs/PI3X_GEOMETRY_REFERENCE.md#runtime), [Blender](docs/install/blender.md) |
+| Reconstruct people from the source video | `human` | Static plus [PMPose, GVHMR, body assets and skinning](docs/install/human-motion.md) |
+| Generate new robot motion | `robotics` | Static plus [Kimodo, G1 and text models](docs/install/kimodo.md) |
 
-### Helper scripts
+For the reference-inference example below:
 
-| Script | Purpose |
-| --- | --- |
-| `tools/asset_index.py` | Search and rebuild the asset index |
-| `tools/build_catalog.py` | Build the browsable catalog in [docs/catalog](docs/catalog/README.md) |
-| `tools/scene_variant.py` | Apply furniture and material replacements to a scene |
-| `tools/export_articulated_asset.py` | Export operable furniture such as cabinets and drawers |
-| `tools/configure_runtime.py` | Write the local runtime profile |
-| `tools/task_claim.py` | Coordinate several agents or people working in one checkout |
-
-The project also ships agent skills in `.agents/skills/` for AI coding agents;
-see [tools and skills](TOOLS_AND_SKILLS.md). Opus 5.5 can also drive this repository
-based on initial experiments, but it has not been fully tested.
-
-## Project layout
-
-```text
-aha-3d/
-├── src/aha3d/        Core library: pipeline stages, Blender assembly, motion, workflow checks
-├── tools/            Command-line tools and stage scripts
-├── assets/           Reusable furniture, plant and material libraries
-├── configs/          Runtime templates, cabinet layouts and request presets
-├── examples/         Example scene configurations
-├── docs/             Guides, workflow contracts and installation notes
-├── tests/            Unit tests and optional Blender integration checks
-├── .agents/skills/   Agent skills for AI coding agents
-├── references/       Your source videos (contents not tracked)
-├── scenes/           Your scene workspaces (contents not tracked)
-└── runs/             Pipeline outputs (contents not tracked)
+```bash
+bash tools/setup.sh --level static --plan  # Inspect without installing
+bash tools/setup.sh --level static
 ```
 
-Start from the [documentation index](docs/INDEX.md) for the full set of guides.
+The installer prepares code and Python environments. **Download the Pi3X and SAM3
+weights using the links above before inference**; weights and Blender are separate.
+Human setup also needs the separate PMPose/GVHMR installation steps. Generated
+human actions use Kimodo's SMPL-X model, described in the Kimodo guide.
+
+Default runtime locations are under `.runtime/`; use [setup](docs/SETUP.md) for
+custom paths and keep machine configuration in ignored local files. Model access
+and distribution terms are listed in [third-party dependencies](THIRD_PARTY.md).
+
+## Inference: build a geometry reference
+
+Entry point: `python -m tools.layout_inspection.build_reference`.
+It runs Pi3X, SAM3 masks, structural alignment, meshing and source-camera overlays.
+Use **one continuous video shot** with at least two frames and valid decoder
+timestamps. Automatic shot splitting is not implemented. The source-person
+world pipeline has additional [input normalization requirements](docs/REAL2SIM_PIPELINE.md#1-establish-source-timing-and-scope).
+
+### Minimal example
+
+After Static setup and both model downloads, run the example video or
+replace `--video` with your own footage. These commands assume the default
+installation locations. In a shared checkout,
+[claim the output path](docs/COORDINATION.md#commands) before running.
+
+```bash
+export PI3X_PY="$PWD/.runtime/pi3x-inference/venv/bin/python"
+export PI3X_MESH_PY="$PWD/.runtime/pi3x-mesh/venv/bin/python"
+export PI3X_CHECKPOINT="$PWD/.runtime/pi3x/checkpoint/model.safetensors"
+
+"$PI3X_PY" -m tools.layout_inspection.build_reference \
+  --video references/office48/source.mp4 \
+  --checkpoint "$PI3X_CHECKPOINT" \
+  --out runs/office48_tutorial/reference-001
+```
+
+Choose a **new** output directory; the command creates it and refuses overwrites.
+The default Pi3 checkout is `external/Pi3`; SAM3 uses
+`.runtime/sam3-segmentation` with its prepared `runtime.json` and checkpoint.
+
+| Argument | Required for a new video? | Meaning/default |
+| --- | --- | --- |
+| `--video PATH` | Yes | Input video; mutually exclusive with cached `--bundle` |
+| `--checkpoint PATH` | Yes | Explicit Pi3X model file; setting the environment variable alone does not pass it |
+| `--out PATH` | Yes | New output directory |
+| `--num-frames 32\|64` | No | Default 32, spanning both shot endpoints; shorter clips use all frames |
+| `--pixel-limit N` | No | Inference pixel budget; default 255000 |
+| `--reference-views 3\|4\|5` | No | Native-camera overlay count; default 5 |
+
+For custom installs, use `--upstream`, `--pi3x-python`, `--semantic-runtime`,
+`--semantic-python` and `--mesh-python`. Get all options with
+`"$PI3X_PY" -m tools.layout_inspection.build_reference --help`.
+[The geometry guide](docs/PI3X_GEOMETRY_REFERENCE.md) covers complete-cache reuse.
+
+### Expected outputs
+
+```text
+runs/office48_tutorial/reference-001/
+├── pi3x/                 Frames, predictions, input provenance and initial cameras
+├── masks/                Per-frame semantic masks
+├── alignment/            Proposed structural basis and aligned cameras
+├── mesh/                 Reference geometry layers and manifest
+├── source_views/         Native-camera overlays and view manifest
+└── reference_build.json  Final artifact paths and build status
+```
+
+The report status is `built; visual review required`. Open the source overlays
+and review geometry/alignment before authoring the room. Use the camera path in
+`reference_build.json` downstream. This command produces no final room `.blend`
+or rendered scene video; inferred dimensions and hidden geometry remain approximate.
+
+## Reconstruct a complete scene
+
+Start with the [office reconstruction prompt](docs/GETTING_STARTED.md#2-ask-the-agent-to-reconstruct-it).
+The agent records scope and acceptance, executes the requested stages and selects
+the final delivery. See [other tasks](docs/GETTING_STARTED.md#4-try-another-task)
+for source people, materials and browser demos.
+
+### Run an existing recipe
+
+The scene CLI is `bash tools/indoor`. Select an installed project environment
+before using it; after default Static setup:
+
+```bash
+export KIMODO_ENV="$PWD/.runtime/pi3x-inference/venv"
+source kimodo_blender/env.sh
+bash tools/indoor --help
+bash tools/indoor scenes
+```
+
+For an **already authored** scene and configured recipe runtime:
+
+```bash
+bash tools/indoor plan SCENE_ID --recipe RECIPE_NAME
+bash tools/indoor run SCENE_ID --recipe RECIPE_NAME
+bash tools/indoor status --scene SCENE_ID --live
+```
+
+Replace both placeholders with your scene ID and recipe name. `SCENE_ID` and
+`--recipe` are required; the recipe supplies inputs, timing, stages and runtime.
+A clean clone does not contain your authored scene. The CLI's `intake` command
+records structured requirements; it does not parse a chat prompt or launch
+inference. See [recipes and resume](docs/PIPELINE.md), or the separate
+[generated-human-motion example](examples/README.md#new-motion-workspace), which
+requires Kimodo SMPL-X and skinning setup.
+
+## Common troubleshooting
+
+| Symptom | Next step |
+| --- | --- |
+| `Runtime interpreter not found` / `Set KIMODO_ENV` | Check the installed interpreter paths. Set the reference runtime flags or `KIMODO_ENV` for `tools/indoor`; see [shell setup](docs/SETUP.md#3-per-shell-environment). |
+| Missing checkpoint, SAM3 access error or missing `runtime.json` | Finish the separate model downloads and SAM3 runtime preparation linked under Setup. |
+| CUDA unavailable or out of memory | Check `nvidia-smi` and the selected environment. Use 32 frames and reduce `--pixel-limit` if needed; record the change. See [Pi3X troubleshooting](docs/install/pi3x.md#troubleshooting). |
+| Output directory already exists | Choose a new reference output path. For an existing recipe run, use [resume](docs/PIPELINE.md#resume-and-reuse). |
+| Invalid timestamps, incomplete decoding or poor alignment | Inspect the source shot and decoder output; review source overlays and [alignment diagnostics](docs/STRUCTURAL_ALIGNMENT.md). |
+| A recipe pauses for layout/preview review | Read `run.json` and stage logs, complete the requested visual review, then resume via the [review workflow](docs/SCENE_WORKFLOW.md#submission-preflight-and-full-clip-preview-acceptance). |
+
+The example arguments above match the code interfaces. Documentation checks are
+separate from a fresh GPU run: see [validation coverage](docs/VALIDATION.md).
+There is no published time/VRAM benchmark for this exact first-run example.
+
+</details>
+
+## Which documentation should I read?
+
+| Audience | Start here | Read as needed |
+| --- | --- | --- |
+| Users | This README, [Getting started](docs/GETTING_STARTED.md) | [Installation](docs/INSTALLATION.md), [setup](docs/SETUP.md), [reference inference](docs/PI3X_GEOMETRY_REFERENCE.md), [examples](examples/README.md), [results](docs/RESULTS.md) |
+| Developers | [Git workflow](docs/GIT_WORKFLOW.md), [coordination](docs/COORDINATION.md) | [Pipeline](docs/PIPELINE.md), `src/aha3d/`, `tools/`, `tests/`; run `python tools/verify_package.py` for source/package checks |
+| Agents | [AGENTS.md](AGENTS.md), [task routing](docs/INDEX.md), [skill index](TOOLS_AND_SKILLS.md) | The current skill under `.agents/skills/`, [scene workflow](docs/SCENE_WORKFLOW.md), [acceptance](docs/WORKFLOW_ACCEPTANCE.md) |
+
+Use the [documentation index](docs/INDEX.md) for specific operations such as
+asset replacement, materials, motion refinement and rendering. The
+[asset catalog](assets/INDEX.md) lists reusable furniture and materials.
+Historical reports in `docs/lessons/` provide context, not current execution defaults.
 
 ## License
 
 Project-authored code, skills and assets are licensed under the
-[Apache License 2.0](LICENSE). See [distribution notes](DISTRIBUTION.md) for scope
-and [third-party dependencies](THIRD_PARTY.md) for models and libraries obtained
-separately.
+[Apache License 2.0](LICENSE). See [distribution notes](DISTRIBUTION.md) and
+[third-party dependencies](THIRD_PARTY.md) for separately acquired models and assets.

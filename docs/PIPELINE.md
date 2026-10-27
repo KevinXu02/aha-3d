@@ -3,8 +3,10 @@
 Read the [complete updated real2sim pipeline](REAL2SIM_PIPELINE.md) for source,
 room, camera, PMPose/GVHMR, v2, planned Kimodo gap completion and delivery routing.
 
-Use `bash tools/indoor` from the project root. It uses the existing Kimodo Python
-environment; no installation is required. Execution rules live in the
+Use `bash tools/indoor` from the project root after [setup](SETUP.md). It uses
+the installed project Python environment selected by `KIMODO_ENV`; recipes also
+require their configured stage runtimes. This CLI executes authored recipes. For
+first-video geometry inference, use the [README example](../README.md#inference-build-a-geometry-reference). Execution rules live in the
 [runtime policy](../MACHINE.md). Claim recipe, code and run paths through the
 [coordination protocol](COORDINATION.md) before writing them.
 

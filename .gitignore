@@ -5,6 +5,9 @@
 !/scenes/README.md
 /references/*
 !/references/README.md
+!/references/office48/
+/references/office48/*
+!/references/office48/source.mp4
 /tasks/*
 !/tasks/README.md
 /deliveries/*

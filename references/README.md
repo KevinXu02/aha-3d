@@ -1,7 +1,8 @@
 # Reference inputs
 
-Put your own reference videos, images and source annotations here. Nothing is
-bundled: this folder is ignored by Git except for this file.
+Put reference videos, images and source annotations here. The bundled
+[office video](office48/source.mp4) is used in [Getting started](../docs/GETTING_STARTED.md).
+Other inputs in this folder are ignored by Git.
 
 Keep unassigned footage under `references/unassigned/` and record scene
 assignments when you create a scene workspace under `scenes/<id>/`. Keep each

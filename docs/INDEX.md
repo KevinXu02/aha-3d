@@ -1,7 +1,13 @@
 # Documentation index
 
-Read [coordination](COORDINATION.md) once at task start, then choose the active
-stage below. This index is a router, not a required reading list. Existing runtime
+New here? Use the prompts in [Getting started](GETTING_STARTED.md) to explore the
+office example, ask the agent to reconstruct it, and review the result in the Gallery.
+
+For documentation by audience (users, developers and agents), see the
+[README reading map](../README.md#which-documentation-should-i-read).
+
+Agents and contributors: read [coordination](COORDINATION.md) once at task start,
+then choose the active stage below. This index is a router, not a required reading list. Existing runtime
 configuration does not require rereading installation guides.
 
 | Active task | Read now |
